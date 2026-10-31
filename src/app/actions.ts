@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { z } from "zod";
 import {
   fieldErrors,
@@ -18,6 +18,7 @@ import {
   taskSchema,
 } from "@/lib/validation";
 import { safeNextPath } from "@/lib/safe-redirect";
+import { clientIp } from "@/server/auth/client-ip";
 import { clearSessionCookie, requireUser, SESSION_COOKIE, setSessionCookie } from "@/server/auth/current";
 import { authenticate, createSession, invalidateSession, signUp } from "@/server/services/auth";
 import { AppError } from "@/server/services/errors";
@@ -76,7 +77,7 @@ const refreshProject = (projectId: string) => {
 export async function signUpAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const state = await run(async () => {
     const input = parse(signUpSchema, formDataToObject(formData));
-    const user = await signUp(input);
+    const user = await signUp(input, clientIp(await headers()));
     const { token, expiresAt } = await createSession(user.id);
     await setSessionCookie(token, expiresAt);
   });
@@ -87,7 +88,7 @@ export async function signUpAction(_: ActionState, formData: FormData): Promise<
 export async function loginAction(_: ActionState, formData: FormData): Promise<ActionState> {
   const state = await run(async () => {
     const input = parse(loginSchema, formDataToObject(formData));
-    const user = await authenticate(input.email, input.password);
+    const user = await authenticate(input.email, input.password, clientIp(await headers()));
     if (!user) {
       log.warn("auth.login_failed", { emailRef: emailRef(input.email) });
       throw new AppError("UNAUTHENTICATED", "Incorrect email or password.");
