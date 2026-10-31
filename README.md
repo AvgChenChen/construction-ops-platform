@@ -7,6 +7,14 @@ A full-stack web app for coordinating subcontractors on active construction proj
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
+## Quick start
+
+```bash
+docker compose up --build        # Postgres, migrations, demo data, app on http://localhost:3000
+```
+
+Sign in as `dana@northline.example` with the `SEED_DEMO_PASSWORD` from `.env.example`. Setup without Docker is under [Run it locally](#run-it-locally).
+
 ## The problem
 
 A general contractor running a renovation spends much of the day chasing updates. Is the
@@ -192,11 +200,11 @@ npm run build && npm run test:e2e     # Playwright, headless Chromium, productio
 | End-to-end (7) | Signed-out redirect, wrong password, dashboard blocker, create project with dialog validation → add task → archive via confirmation dialog, member restrictions, server-side schedule filters, other company gets a 404 page and API | **7 passed** |
 
 Last local run: macOS, Node 25.9, PostgreSQL 17.11, 31 Oct 2026. CI runs the same suites on
-Node 22 with a Postgres 17 service container, plus lint, formatting, a runtime-dependency
-audit, and a Docker image build.
+Node 22 (Ubuntu 24.04) with a Postgres 17 service container, plus lint, formatting, a
+runtime-dependency audit, and a Docker image build.
 
-> Docker isn't installed on the development machine, so the `Dockerfile` and
-> `docker-compose.yml` have **not been run locally**. The CI `docker` job builds the image.
+> The Docker image builds in CI. `docker compose up` itself has not been run, because Docker
+> isn't installed on the development machine.
 
 ## API
 
