@@ -196,7 +196,7 @@ npm run build && npm run test:e2e     # Playwright, headless Chromium, productio
 
 | Suite | Covers | Last local result |
 |---|---|---|
-| Unit (37) | Working-day calendar, blocker detection and root causes, cycle detection, zod validation, password hashing, session tokens, bounded rate limiter, lockout resistance, client-IP parsing, safe redirects | **37 passed** |
+| Unit (54) | Working-day calendar, blocker detection and root causes, cycle detection, zod validation, password hashing, session tokens, bounded rate limiter, lockout resistance, client-IP parsing, safe redirects (including browser URL clean-up tricks) | **54 passed** |
 | Integration (25) | Real PostgreSQL: tenant isolation (8 tests, including a direct insert rejected by the composite foreign key), auth and sessions, per-IP login throttling, sign-up limits, dependencies and cycles, archive rules, owner-only archive and approval, search scoping, activity-log rollback, schedule export | **25 passed** |
 | End-to-end (7) | Signed-out redirect, wrong password, dashboard blocker, create project with dialog validation → add task → archive via confirmation dialog, member restrictions, server-side schedule filters, other company gets a 404 page and API | **7 passed** |
 
@@ -235,6 +235,7 @@ GET /api/projects/prj_maple_ridge/schedule-export      (session cookie required)
 | Account enumeration at sign-up | Sign-up says when an email is already registered, so it can reveal that an account exists. A real product would show a neutral message and email the address; this prototype sends no email, so it keeps the clear message and limits sign-up attempts to 10 per IP per hour. |
 | Authorization | Middleware only checks that a cookie exists. `requireUser()` validates the session on every page, action and API route. Owners alone can archive, restore and approve; this is enforced in the service layer, not by hiding buttons. |
 | Tenant isolation | (1) Every query filters by `ctx.orgId`, and other companies' ids return **NOT_FOUND, never FORBIDDEN**, so ids don't leak. (2) Composite foreign keys make Postgres reject a row that points across companies. Both layers are tested. |
+| Open redirects | The post-login `next` path is resolved with the WHATWG URL parser (the one browsers use) and kept only if it stays on this site, so tricks that browsers clean up, like `/\t/evil.com` or `/\/evil.com`, are rejected |
 | CSRF | Server Actions only accept same-origin POSTs (Next.js compares Origin and Host), plus the SameSite cookie. The only API route is read-only. |
 | Input | zod validation on the server for every mutation. Ids bound into actions are re-checked, because they come back from the browser. |
 | Headers | Content-Security-Policy in production (`frame-ancestors 'none'`, `form-action 'self'`, `object-src 'none'`), `X-Frame-Options: DENY`, `nosniff`, strict referrer policy, no `X-Powered-By` |
