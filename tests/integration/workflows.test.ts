@@ -41,10 +41,41 @@ describe("authentication and sessions", () => {
     );
   });
 
-  it("throttles repeated failed logins for the same email", async () => {
+  it("throttles one IP's guesses without locking the real user out (issue #2)", async () => {
     await signUp({ organizationName: "T", name: "T", email: "throttle@x.example", password: "a-long-password" });
-    for (let i = 0; i < 5; i++) expect(await authenticate("throttle@x.example", "nope")).toBeNull();
-    await expectCode(authenticate("throttle@x.example", "a-long-password"), "RATE_LIMITED");
+    for (let i = 0; i < 5; i++) expect(await authenticate("throttle@x.example", "nope", "203.0.113.7")).toBeNull();
+    await expectCode(authenticate("throttle@x.example", "a-long-password", "203.0.113.7"), "RATE_LIMITED");
+    expect((await authenticate("throttle@x.example", "a-long-password", "198.51.100.2"))?.email).toBe(
+      "throttle@x.example",
+    );
+  });
+
+  it("says when a sign-up email is taken, and limits sign-up attempts per IP (issue #3)", async () => {
+    // Documented trade-off: the message reveals that the account exists (see README, Security).
+    await signUp(
+      { organizationName: "A", name: "A", email: "taken@x.example", password: "a-long-password" },
+      "203.0.113.9",
+    );
+    await expectCode(
+      signUp(
+        { organizationName: "B", name: "B", email: "taken@x.example", password: "a-long-password" },
+        "203.0.113.9",
+      ),
+      "CONFLICT",
+    );
+    for (let i = 0; i < 8; i++) {
+      await signUp(
+        { organizationName: "C", name: "C", email: "taken@x.example", password: "a-long-password" },
+        "203.0.113.9",
+      ).catch(() => undefined);
+    }
+    await expectCode(
+      signUp(
+        { organizationName: "D", name: "D", email: `new-${Date.now()}@x.example`, password: "a-long-password" },
+        "203.0.113.9",
+      ),
+      "RATE_LIMITED",
+    );
   });
 
   it("stores only a hash of the session token, and expires and revokes sessions", async () => {

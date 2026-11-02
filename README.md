@@ -164,6 +164,7 @@ On macOS: `brew install postgresql@17`.
 | `APP_TIMEZONE` | Defines "today" for blockers (default `America/Toronto`) |
 | `SEED_DEMO_PASSWORD` | Password given to the fictional demo users |
 | `COOKIE_SECURE` | Optional. Overrides the `Secure` cookie flag (defaults to on in production) |
+| `TRUST_PROXY` | Set to `true` only behind a proxy you control that overwrites `X-Forwarded-For`. Enables the per-IP login and sign-up limits; without it they're skipped, because the headers can be forged. |
 
 `.env` is gitignored. `.env.example` contains local-only development values.
 
@@ -195,8 +196,8 @@ npm run build && npm run test:e2e     # Playwright, headless Chromium, productio
 
 | Suite | Covers | Last local result |
 |---|---|---|
-| Unit (47) | Working-day calendar, blocker detection and root causes, cycle detection, zod validation, password hashing, session tokens, login throttle, safe redirects (including browser URL clean-up tricks) | **47 passed** |
-| Integration (24) | Real PostgreSQL: tenant isolation (8 tests, including a direct insert rejected by the composite foreign key), auth and sessions, dependencies and cycles, archive rules, owner-only archive and approval, search scoping, activity-log rollback, schedule export | **24 passed** |
+| Unit (54) | Working-day calendar, blocker detection and root causes, cycle detection, zod validation, password hashing, session tokens, bounded rate limiter, lockout resistance, client-IP parsing, safe redirects (including browser URL clean-up tricks) | **54 passed** |
+| Integration (25) | Real PostgreSQL: tenant isolation (8 tests, including a direct insert rejected by the composite foreign key), auth and sessions, per-IP login throttling, sign-up limits, dependencies and cycles, archive rules, owner-only archive and approval, search scoping, activity-log rollback, schedule export | **25 passed** |
 | End-to-end (7) | Signed-out redirect, wrong password, dashboard blocker, create project with dialog validation → add task → archive via confirmation dialog, member restrictions, server-side schedule filters, other company gets a 404 page and API | **7 passed** |
 
 Last local run: macOS, Node 25.9, PostgreSQL 17.11, 31 Oct 2026. CI runs the same suites on
@@ -230,7 +231,8 @@ GET /api/projects/prj_maple_ridge/schedule-export      (session cookie required)
 | Passwords | scrypt from Node's standard library, per-user salt, parameters stored in the hash, constant-time comparison |
 | Account enumeration | Unknown emails still run one scrypt comparison, so timing doesn't reveal which accounts exist |
 | Sessions | 256-bit random token in an `httpOnly`, `SameSite=Lax` cookie (`Secure` in production). Only its SHA-256 is stored. Seven-day expiry; deleted on sign-out. |
-| Brute force | 5 failed logins per email per 15 minutes, then a lockout |
+| Brute force | Per 15 minutes: 5 failures per IP + account, 30 per IP across accounts, and 20 per account from anywhere. One IP's guessing doesn't lock the real user out elsewhere. A determined attacker can still trip the account limit from 20+ IPs (documented residual risk). Counters are bounded in memory: expired windows are swept and the table is capped. |
+| Account enumeration at sign-up | Sign-up says when an email is already registered, so it can reveal that an account exists. A real product would show a neutral message and email the address; this prototype sends no email, so it keeps the clear message and limits sign-up attempts to 10 per IP per hour. |
 | Authorization | Middleware only checks that a cookie exists. `requireUser()` validates the session on every page, action and API route. Owners alone can archive, restore and approve; this is enforced in the service layer, not by hiding buttons. |
 | Tenant isolation | (1) Every query filters by `ctx.orgId`, and other companies' ids return **NOT_FOUND, never FORBIDDEN**, so ids don't leak. (2) Composite foreign keys make Postgres reject a row that points across companies. Both layers are tested. |
 | Open redirects | The post-login `next` path is resolved with the WHATWG URL parser (the one browsers use) and kept only if it stays on this site, so tricks that browsers clean up, like `/\t/evil.com` or `/\/evil.com`, are rejected |
@@ -254,7 +256,7 @@ GET /api/projects/prj_maple_ridge/schedule-export      (session cookie required)
 
 - Prototype: not deployed, not load-tested, no customers.
 - No password reset, email verification, invitations or users in several companies.
-- The login throttle lives in process memory, so each instance counts separately; it needs Redis or similar to scale out. It is keyed by email, not IP.
+- Login and sign-up limits live in process memory, so each instance counts separately; scaling out needs Redis or Postgres. Per-IP limits need `TRUST_PROXY=true` behind a trusted proxy.
 - The CSP still allows inline scripts, because Next.js inlines its bootstrap scripts. A nonce-based CSP would close that gap.
 - Approved follow-ups are recorded, not sent.
 - The Ops calendar is Monday to Friday with no holidays. The dependency engine has holiday support.

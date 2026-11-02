@@ -1,12 +1,25 @@
 import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword, getDummyHash } from "../auth/password";
 import { generateSessionToken, hashSessionToken } from "../auth/tokens";
-import { clearLoginFailures, isLoginThrottled, recordLoginFailure } from "../auth/rate-limit";
+import { clearLoginFailures, isLoginThrottled, recordLoginFailure, signUpLimiter } from "../auth/rate-limit";
 import { AppError, conflict, isUniqueViolation } from "./errors";
 
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-export async function signUp(input: { organizationName: string; name: string; email: string; password: string }) {
+/**
+ * Sign-up says plainly when an email is taken. That lets someone check whether an email
+ * has an account (issue #3). A real product would show a neutral message and email the
+ * address instead; this prototype sends no email, so it keeps the clear message, limits
+ * attempts per IP when the IP is known, and documents the trade-off in the README.
+ */
+export async function signUp(
+  input: { organizationName: string; name: string; email: string; password: string },
+  ip: string | null = null,
+) {
+  if (ip && signUpLimiter.isLimited(ip)) {
+    throw new AppError("RATE_LIMITED", "Too many sign-up attempts. Try again later.");
+  }
+  if (ip) signUpLimiter.hit(ip);
   const passwordHash = await hashPassword(input.password);
   try {
     return await prisma.$transaction(async (tx) => {
@@ -22,18 +35,18 @@ export async function signUp(input: { organizationName: string; name: string; em
 }
 
 /** Returns the user on success, null on bad credentials. Throws when throttled. */
-export async function authenticate(email: string, password: string) {
-  if (isLoginThrottled(email)) {
+export async function authenticate(email: string, password: string, ip: string | null = null) {
+  if (isLoginThrottled(email, ip)) {
     throw new AppError("RATE_LIMITED", "Too many failed attempts. Try again in 15 minutes.");
   }
   const user = await prisma.user.findUnique({ where: { email } });
   // Always run one scrypt comparison so response time doesn't reveal whether the email exists.
   const ok = await verifyPassword(password, user?.passwordHash ?? (await getDummyHash()));
   if (!user || !ok) {
-    recordLoginFailure(email);
+    recordLoginFailure(email, ip);
     return null;
   }
-  clearLoginFailures(email);
+  clearLoginFailures(email, ip);
   return user;
 }
 
