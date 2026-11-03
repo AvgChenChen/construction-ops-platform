@@ -86,7 +86,8 @@ describe("clientIp", () => {
   const h = (init: Record<string, string>) => new Headers(init);
   it("ignores proxy headers unless the proxy is trusted", () => {
     expect(clientIp(h({ "x-forwarded-for": "203.0.113.7" }), false)).toBeNull();
-    expect(clientIp(h({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }), true)).toBe("203.0.113.7");
+    // With one trusted proxy, the last entry is the one it added; the leftmost could be forged.
+    expect(clientIp(h({ "x-forwarded-for": "203.0.113.7, 10.0.0.1" }), true, 1)).toBe("10.0.0.1");
     expect(clientIp(h({ "x-real-ip": "2001:db8::1" }), true)).toBe("2001:db8::1");
     expect(clientIp(h({ "x-forwarded-for": "not an ip; drop table" }), true)).toBeNull();
   });
