@@ -164,7 +164,8 @@ On macOS: `brew install postgresql@17`.
 | `APP_TIMEZONE` | Defines "today" for blockers (default `America/Toronto`) |
 | `SEED_DEMO_PASSWORD` | Password given to the fictional demo users |
 | `COOKIE_SECURE` | Optional. Overrides the `Secure` cookie flag (defaults to on in production) |
-| `TRUST_PROXY` | Set to `true` only behind a proxy you control that overwrites `X-Forwarded-For`. Enables the per-IP login and sign-up limits; without it they're skipped, because the headers can be forged. |
+| `TRUST_PROXY` | Set to `true` only behind a proxy you control. Enables the per-IP login and sign-up limits; without it they're skipped, because the headers can be forged. |
+| `TRUST_PROXY_HOPS` | How many proxies you control sit in front of the app (default 1, e.g. 2 for a CDN plus nginx). The client IP is read that many entries from the right of `X-Forwarded-For`, so values a client prepends are ignored. Invalid values fall back to 1. |
 
 `.env` is gitignored. `.env.example` contains local-only development values.
 
@@ -196,7 +197,7 @@ npm run build && npm run test:e2e     # Playwright, headless Chromium, productio
 
 | Suite | Covers | Last local result |
 |---|---|---|
-| Unit (54) | Working-day calendar, blocker detection and root causes, cycle detection, zod validation, password hashing, session tokens, bounded rate limiter, lockout resistance, client-IP parsing, safe redirects (including browser URL clean-up tricks) | **54 passed** |
+| Unit (59) | Working-day calendar, blocker detection and root causes, cycle detection, zod validation, password hashing, session tokens, bounded rate limiter, lockout resistance, client-IP parsing (forged X-Forwarded-For entries ignored), safe redirects (including browser URL clean-up tricks) | **59 passed** |
 | Integration (25) | Real PostgreSQL: tenant isolation (8 tests, including a direct insert rejected by the composite foreign key), auth and sessions, per-IP login throttling, sign-up limits, dependencies and cycles, archive rules, owner-only archive and approval, search scoping, activity-log rollback, schedule export | **25 passed** |
 | End-to-end (7) | Signed-out redirect, wrong password, dashboard blocker, create project with dialog validation → add task → archive via confirmation dialog, member restrictions, server-side schedule filters, other company gets a 404 page and API | **7 passed** |
 
@@ -232,6 +233,7 @@ GET /api/projects/prj_maple_ridge/schedule-export      (session cookie required)
 | Account enumeration | Unknown emails still run one scrypt comparison, so timing doesn't reveal which accounts exist |
 | Sessions | 256-bit random token in an `httpOnly`, `SameSite=Lax` cookie (`Secure` in production). Only its SHA-256 is stored. Seven-day expiry; deleted on sign-out. |
 | Brute force | Per 15 minutes: 5 failures per IP + account, 30 per IP across accounts, and 20 per account from anywhere. One IP's guessing doesn't lock the real user out elsewhere. A determined attacker can still trip the account limit from 20+ IPs (documented residual risk). Counters are bounded in memory: expired windows are swept and the table is capped. |
+| Client IP for limits | With `TRUST_PROXY=true`, the IP is the `X-Forwarded-For` entry `TRUST_PROXY_HOPS` places from the right (the one your own proxy added), never the leftmost, which a client can forge to dodge per-IP limits |
 | Account enumeration at sign-up | Sign-up says when an email is already registered, so it can reveal that an account exists. A real product would show a neutral message and email the address; this prototype sends no email, so it keeps the clear message and limits sign-up attempts to 10 per IP per hour. |
 | Authorization | Middleware only checks that a cookie exists. `requireUser()` validates the session on every page, action and API route. Owners alone can archive, restore and approve; this is enforced in the service layer, not by hiding buttons. |
 | Tenant isolation | (1) Every query filters by `ctx.orgId`, and other companies' ids return **NOT_FOUND, never FORBIDDEN**, so ids don't leak. (2) Composite foreign keys make Postgres reject a row that points across companies. Both layers are tested. The reasoning and rejected alternatives are in [ADR 0001](docs/adr/0001-not-found-for-cross-tenant-ids.md). |
