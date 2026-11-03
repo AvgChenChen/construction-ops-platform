@@ -197,7 +197,7 @@ npm run build && npm run test:e2e     # Playwright, headless Chromium, productio
 
 | Suite | Covers | Last local result |
 |---|---|---|
-| Unit (68) | Working-day calendar (including weekend, zero-day and year-end edges), blocker detection and root causes, cycle detection, zod validation, password hashing, session tokens, bounded rate limiter, lockout resistance, client-IP parsing (forged X-Forwarded-For entries ignored), safe redirects (including browser URL clean-up tricks), every Server Action checked for a session | **68 passed** |
+| Unit (73) | Working-day calendar (including weekend, zero-day and year-end edges), blocker detection and root causes, cycle detection (self-loops, long chains, diamonds), zod validation, password hashing, session tokens, bounded rate limiter, lockout resistance, client-IP parsing (forged X-Forwarded-For entries ignored), safe redirects (including browser URL clean-up tricks), every Server Action checked for a session | **73 passed** |
 | Integration (25) | Real PostgreSQL: tenant isolation (8 tests, including a direct insert rejected by the composite foreign key), auth and sessions, per-IP login throttling, sign-up limits, dependencies and cycles, archive rules, owner-only archive and approval, search scoping, activity-log rollback, schedule export | **25 passed** |
 | End-to-end (7) | Signed-out redirect, wrong password, dashboard blocker, create project with dialog validation → add task → archive via confirmation dialog, member restrictions, server-side schedule filters, other company gets a 404 page and API | **7 passed** |
 
