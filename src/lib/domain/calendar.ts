@@ -37,7 +37,11 @@ export function nextWorkingDayOnOrAfter(date: Date): Date {
   return d;
 }
 
-/** Moves forward (n > 0) or backward (n < 0) by n working days. */
+/**
+ * Moves forward (n > 0) or backward (n < 0) by n working days.
+ * With n = 0 the date is returned unchanged, even if it's a weekend; use
+ * nextWorkingDayOnOrAfter first when the start must be a working day (plannedEndFor does).
+ */
 export function addWorkingDays(date: Date, n: number): Date {
   let d = new Date(date.getTime());
   const step = n >= 0 ? 1 : -1;
@@ -60,6 +64,11 @@ export function plannedEndFor(start: Date, durationDays: number): Date {
 /**
  * Number of working days after `from` up to and including `to`.
  * Negative when `to` is before `from`. Zero when they are the same day.
+ *
+ * `to` is counted and `from` isn't, in both directions, so the result is only the mirror
+ * image of the reverse call when both ends are working days: Fri -> Sat is 0, but
+ * Sat -> Fri is -1. blockers.ts relies on this (a task planned for Friday that hasn't
+ * started by Saturday is one working day late).
  */
 export function workingDaysBetween(from: Date, to: Date): number {
   if (to.getTime() === from.getTime()) return 0;
