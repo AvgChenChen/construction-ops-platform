@@ -18,10 +18,10 @@ import { ConfirmButton, FormDialog } from "@/components/ui/dialog";
 import { ActionButton, ActionForm } from "@/components/ui/forms";
 import { DownloadIcon, PlusIcon } from "@/components/ui/icons";
 import { Alert, Badge, Card, EmptyState, Field, PageHeader, ProgressBar } from "@/components/ui/primitives";
-import { SeverityBadge } from "@/components/ui/status";
+import { FollowUpStatusBadge, SeverityBadge } from "@/components/ui/status";
 import { detectBlockers, projectProgress } from "@/lib/domain/blockers";
 import { formatDate } from "@/lib/domain/calendar";
-import { TRADE_LABELS } from "@/lib/domain/trades";
+import { FOLLOW_UP_STATUS_LABELS, TRADE_LABELS } from "@/lib/domain/trades";
 import { appToday } from "@/lib/today";
 import { orNotFound, requireUser } from "@/server/auth/current";
 import { getProjectDetail } from "@/server/services/projects";
@@ -357,13 +357,7 @@ export default async function ProjectPage({
                 <li key={f.id} className="py-4 first:pt-0 last:pb-0">
                   <div className="flex items-start justify-between gap-4">
                     <p className="text-sm text-ink">{f.message}</p>
-                    {f.status === "PENDING_APPROVAL" ? (
-                      <Badge tone="primary">Pending</Badge>
-                    ) : f.status === "APPROVED" ? (
-                      <Badge tone="success">Approved</Badge>
-                    ) : (
-                      <Badge>Rejected</Badge>
-                    )}
+                    <FollowUpStatusBadge status={f.status} />
                   </div>
                   <p className="mt-2 text-xs text-ink-subtle">
                     {[
@@ -371,9 +365,7 @@ export default async function ProjectPage({
                       f.task ? `Re: ${f.task.name}` : null,
                       f.dueDate ? `Due ${formatDate(f.dueDate)}` : null,
                       f.createdBy ? `Drafted by ${f.createdBy.name}` : null,
-                      f.reviewedBy
-                        ? `${f.status === "APPROVED" ? "Approved" : "Rejected"} by ${f.reviewedBy.name}`
-                        : null,
+                      f.reviewedBy ? `${FOLLOW_UP_STATUS_LABELS[f.status]} by ${f.reviewedBy.name}` : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}

@@ -1,4 +1,4 @@
-import type { Trade, TaskStatus } from "@prisma/client";
+import type { FollowUpStatus, Role, Trade, TaskStatus } from "@prisma/client";
 
 export const TRADES = [
   "GENERAL",
@@ -46,6 +46,17 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
   IN_PROGRESS: "In progress",
   BLOCKED: "Blocked",
   COMPLETE: "Complete",
+};
+
+export const FOLLOW_UP_STATUS_LABELS: Record<FollowUpStatus, string> = {
+  PENDING_APPROVAL: "Pending",
+  APPROVED: "Approved",
+  REJECTED: "Rejected",
+};
+
+export const ROLE_LABELS: Record<Role, string> = {
+  OWNER: "Owner",
+  MEMBER: "Member",
 };
 
 /** Shared-contract spelling used by field-update-ai-agent and construction-dependency-engine. */

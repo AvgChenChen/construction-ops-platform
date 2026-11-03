@@ -1,3 +1,4 @@
+import type { TaskStatus } from "@prisma/client";
 import { formatDate, workingDaysBetween } from "./calendar";
 
 /**
@@ -19,7 +20,7 @@ import { formatDate, workingDaysBetween } from "./calendar";
 export type BlockerTask = {
   id: string;
   name: string;
-  status: "NOT_STARTED" | "IN_PROGRESS" | "BLOCKED" | "COMPLETE";
+  status: TaskStatus;
   percentComplete: number;
   plannedStart: Date;
   plannedEnd: Date;

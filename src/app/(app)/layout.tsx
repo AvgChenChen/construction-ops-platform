@@ -2,6 +2,7 @@ import Link from "next/link";
 import { logoutAction } from "@/app/actions";
 import { NavLinks } from "@/components/nav-links";
 import { LogOutIcon, MarkIcon } from "@/components/ui/icons";
+import { ROLE_LABELS } from "@/lib/domain/trades";
 import { requireUser } from "@/server/auth/current";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {user.name}
             </p>
             <p className="truncate text-xs text-ink-subtle">{user.organizationName}</p>
-            <p className="text-xs text-ink-subtle">{user.role === "OWNER" ? "Owner" : "Member"}</p>
+            <p className="text-xs text-ink-subtle">{ROLE_LABELS[user.role]}</p>
             <form action={logoutAction} className="mt-2">
               <button type="submit" className="btn-ghost btn-sm -ml-3">
                 <LogOutIcon size={14} /> Sign out
@@ -38,7 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
           <div className="flex items-center justify-between border-t border-line px-6 py-2 text-xs text-ink-subtle md:hidden">
             <span>
-              {user.name} · {user.role === "OWNER" ? "Owner" : "Member"}
+              {user.name} · {ROLE_LABELS[user.role]}
             </span>
             <form action={logoutAction}>
               <button type="submit" className="btn-ghost btn-sm">
