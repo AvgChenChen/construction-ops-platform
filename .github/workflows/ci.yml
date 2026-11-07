@@ -54,7 +54,10 @@ jobs:
         if: failure()
         with:
           name: playwright-report
-          path: playwright-report/
+          # Traces and failure screenshots use only fictional seed data and run-tagged fixtures.
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
 
   docker:

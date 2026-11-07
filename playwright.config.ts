@@ -21,9 +21,17 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
+    screenshot: "only-on-failure",
     headless: true,
+    // Opt-in: point at a preinstalled Chromium when the pinned Playwright browser isn't downloaded
+    // (e.g. a sandbox without `npx playwright install`). CI leaves this unset.
+    launchOptions: process.env.PW_CHROMIUM_EXECUTABLE ? { executablePath: process.env.PW_CHROMIUM_EXECUTABLE } : {},
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: /\.mobile\.spec\.ts$/ },
+    // Phone-sized check of the core coordination workflow only; the full suite is not multiplied.
+    { name: "mobile", use: { ...devices["Pixel 7"] }, testMatch: /\.mobile\.spec\.ts$/ },
+  ],
   webServer: {
     command: `npm run start -- --port ${PORT}`,
     url: `http://localhost:${PORT}/api/health`,
