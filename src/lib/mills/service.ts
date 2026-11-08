@@ -179,7 +179,18 @@ export const millsCommandSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('updateTrade'), tradeId: z.string().uuid(), status: statusSchema }),
   z.object({ action: z.literal('addContact'), name: z.string().trim().min(1).max(160), company: z.string().trim().min(1).max(200), role: z.string().trim().max(120).default(''), city: z.string().trim().max(120).default(''), email: z.string().trim().email().or(z.literal('')).default('') }),
   z.object({ action: z.literal('updateContact'), contactId: z.string().uuid(), status: discoverySchema.optional(), nextStep: z.string().trim().max(300).optional(), notes: z.string().trim().max(2000).optional() }),
-  z.object({ action: z.literal('recordMockMessage'), jobId: z.string().uuid(), sourceTaskId: z.string().uuid(), recipientTradeIds: z.array(z.string().uuid()).max(50), body: z.string().trim().min(1).max(4000), approved: z.literal(true) }),
+  z.object({
+    action: z.literal('recordMockMessage'),
+    jobId: z.string().uuid(),
+    sourceTaskId: z.string().uuid(),
+    recipientTradeIds: z.array(z.string().uuid()).max(50).superRefine((ids, context) => {
+      if (new Set(ids).size !== ids.length) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: 'recipientTradeIds must contain unique trade IDs' });
+      }
+    }),
+    body: z.string().trim().min(1).max(4000),
+    approved: z.literal(true),
+  }),
 ]);
 
 export async function executeCommand(input: z.infer<typeof millsCommandSchema>, actorId = 'local-operator') {
@@ -225,6 +236,9 @@ export async function executeCommand(input: z.infer<typeof millsCommandSchema>, 
     });
   }
   return transaction(async (client) => {
+    if (new Set(input.recipientTradeIds).size !== input.recipientTradeIds.length) {
+      throw new Error('Recipient trade IDs must be unique');
+    }
     const { rows: [task] } = await client.query('SELECT id,job_id FROM mills_task WHERE id=$1 FOR SHARE', [input.sourceTaskId]);
     if (!task || task.job_id !== input.jobId) throw new Error('Task does not belong to this Mills job');
     const access = await assertOperatorJobAccess(client, actorId, input.jobId);

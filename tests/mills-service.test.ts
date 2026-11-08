@@ -74,6 +74,24 @@ describe('Mills MVP persistence', () => {
     expect((await mills.readWorkspace()).messages[0].status).toBe('SENT_MOCK');
   });
 
+  it('rejects duplicate mock-message recipients before writing or auditing', async () => {
+    const workspace = await mills.readWorkspace();
+    const source = workspace.tasks[0];
+    const duplicateInput = {
+      action: 'recordMockMessage' as const,
+      jobId: workspace.job.id,
+      sourceTaskId: source.id,
+      recipientTradeIds: [workspace.trades[0].id, workspace.trades[0].id],
+      body: 'Duplicate recipient should be rejected',
+      approved: true as const,
+    };
+
+    expect(() => mills.millsCommandSchema.parse(duplicateInput)).toThrow('recipientTradeIds must contain unique trade IDs');
+    await expect(mills.executeCommand(duplicateInput)).rejects.toThrow('Recipient trade IDs must be unique');
+    expect((await pool.query('SELECT count(*)::int AS count FROM mills_message')).rows[0].count).toBe(0);
+    expect((await pool.query('SELECT count(*)::int AS count FROM mills_audit_event')).rows[0].count).toBe(0);
+  });
+
   it('requires an active account membership and an operator role for operator mutations', async () => {
     const workspace = await mills.readWorkspace();
     const source = workspace.tasks[0];
