@@ -31,9 +31,23 @@ test('public Mills landing page captures a local pilot request without outbound 
   await expect(page.getByRole('status')).toContainText('Pilot request saved');
   await expect(page.getByText('No email was sent and no external account was contacted.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add another request' })).toBeVisible();
+
+  await page.goto('/hq');
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByLabel('Workspace password').fill(process.env.DASHBOARD_PASSWORD!);
+  await page.getByRole('button', { name: 'Open Mills' }).click();
+  await expect(page).toHaveURL(/\/hq/);
+  await expect(page.getByRole('heading', { name: 'New requests, ready for a human reply.' })).toBeVisible();
+  const pilotInbox = page.getByRole('region', { name: 'Pilot inbox' });
+  await expect(pilotInbox.getByText('Northline Build Group', { exact: true })).toBeVisible();
+  await pilotInbox.getByRole('button', { name: 'Mark reviewed' }).click();
+  await expect(page.getByText('Reviewed', { exact: true })).toBeVisible();
 });
 
 test('private Mills console keeps approval-gated mock coordination local', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => undefined } });
+  });
   await page.goto('/mills');
   await expect(page).toHaveURL(/\/login/);
   await page.getByLabel('Workspace password').fill(process.env.DASHBOARD_PASSWORD!);
@@ -45,6 +59,12 @@ test('private Mills console keeps approval-gated mock coordination local', async
 
   await page.getByLabel('Plumbing status').selectOption('DELAYED');
   await expect(page.getByText('Impact detected').first()).toBeVisible();
+  const apiRequests: string[] = [];
+  page.on('request', request => { if (request.url().includes('/api/')) apiRequests.push(request.url()); });
+  const requestCountBeforeCopy = apiRequests.length;
+  await page.getByRole('button', { name: 'Copy draft' }).first().click();
+  await expect(page.getByText('Draft copied locally. No message was sent.')).toBeVisible();
+  expect(apiRequests.length).toBe(requestCountBeforeCopy);
   const send = page.getByRole('button', { name: 'Record mock send' }).first();
   if (await send.count()) {
     const approval = send.locator('xpath=ancestor::article[1]').getByRole('checkbox', { name: /reviewed this draft/i });
@@ -100,6 +120,8 @@ test('Mills headquarters keeps customer health and onboarding in view', async ({
   await expect(page.getByRole('heading', { name: 'Run the company from one calm place.' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Overview/i })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText('CUSTOMER HEALTH', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Know whether the pilot is ready to run.' })).toBeVisible();
+  await expect(page.getByText('Core checks are passing.')).toBeVisible();
   await page.getByRole('button', { name: /Customers/i }).click();
   await expect(page.getByRole('heading', { name: 'Every account, with the next useful action.' })).toBeVisible();
   await page.getByLabel('Search customers').fill('Toronto');
@@ -121,12 +143,18 @@ test('Mills headquarters exposes a retry state when live workspace data is unava
   await page.getByRole('button', { name: 'Open Mills' }).click();
   await expect(page).toHaveURL(/\/hq/);
   await page.route('**/api/mills', route => route.abort());
+  await page.route('**/api/operations', route => route.abort());
   await page.reload();
   await expect(page.getByRole('alert').filter({ hasText: 'Live workspace data is unavailable' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Health check unavailable' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry health check' })).toBeVisible();
   await page.unroute('**/api/mills');
-  await page.getByRole('button', { name: 'Retry' }).click();
+  await page.unroute('**/api/operations');
+  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await page.getByRole('button', { name: 'Retry health check' }).click();
   await expect(page.getByText('Last synced')).toBeVisible();
+  await expect(page.getByText('Core checks are passing.')).toBeVisible();
 });
 
 test('Mills headquarters growth console keeps marketing drafts approval-gated', async ({ page }) => {

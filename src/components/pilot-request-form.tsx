@@ -4,6 +4,7 @@ import { Check, ClipboardCheck, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 
 type PilotRequest = {
+  id: string;
   company: string;
   role: string;
   city: string;
@@ -22,6 +23,7 @@ export default function PilotRequestForm() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const request: PilotRequest = {
+      id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       company: String(form.get('company') || '').trim(),
       role: String(form.get('role') || '').trim(),
       city: String(form.get('city') || '').trim(),

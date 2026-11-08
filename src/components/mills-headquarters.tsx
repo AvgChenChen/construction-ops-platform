@@ -25,8 +25,27 @@ type WorkspaceSnapshot = {
   messages: Array<{ id: string; sourceTaskId: string; body: string; status: string; createdAt: string }>;
 };
 
+type PilotRequest = {
+  id: string;
+  company: string;
+  role: string;
+  city: string;
+  activeJobs: string;
+  pain: string;
+  email: string;
+  createdAt: string;
+};
+
+type OperationsSnapshot = {
+  ready: boolean;
+  workers: { mills: boolean };
+  counts: { activeJobs: number; attentionTrades: number; pendingMessages: number; recentAudits: number; lastBackup: string | null };
+  backupFresh: boolean;
+};
+
 type SyncState = 'loading' | 'ready' | 'error';
 const hqStorageVersion = 'mills-hq-v1';
+const pilotRequestStorageKey = 'mills-pilot-requests-v1';
 
 function readStoredRecord(key: string, fallback: Record<string, boolean>) {
   if (typeof window === 'undefined') return fallback;
@@ -41,6 +60,25 @@ function readStoredRecord(key: string, fallback: Record<string, boolean>) {
 function syncLabel(value: string | null) {
   if (!value) return 'Not synced yet';
   return `Last synced ${new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+}
+
+function readPilotRequests() {
+  if (typeof window === 'undefined') return [] as PilotRequest[];
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(pilotRequestStorageKey) || '[]') as Array<Partial<PilotRequest>>;
+    return stored.filter(request => request.company && request.createdAt).map(request => ({
+      id: request.id || `${request.createdAt}-${request.company}`,
+      company: request.company || '',
+      role: request.role || 'Role not specified',
+      city: request.city || 'City not specified',
+      activeJobs: request.activeJobs || 'Not specified',
+      pain: request.pain || 'No pain point recorded.',
+      email: request.email || '',
+      createdAt: request.createdAt || new Date(0).toISOString(),
+    }));
+  } catch {
+    return [] as PilotRequest[];
+  }
 }
 
 const customers: Customer[] = [
@@ -99,6 +137,11 @@ export default function MillsHeadquarters() {
   const [approvedGrowth, setApprovedGrowth] = useState<Record<string, boolean>>(() => readStoredRecord('growth-approvals', {}));
   const [syncState, setSyncState] = useState<SyncState>('loading');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [pilotRequests, setPilotRequests] = useState<PilotRequest[]>([]);
+  const [reviewedPilotRequests, setReviewedPilotRequests] = useState<Record<string, boolean>>(() => readStoredRecord('pilot-reviewed', {}));
+  const [operations, setOperations] = useState<OperationsSnapshot | null>(null);
+  const [operationsState, setOperationsState] = useState<SyncState>('loading');
+  const [operationsCheckedAt, setOperationsCheckedAt] = useState<string | null>(null);
 
   async function refreshWorkspace() {
     setSyncState('loading');
@@ -121,9 +164,31 @@ export default function MillsHeadquarters() {
     active = false;
   }
 
-  useEffect(() => { void refreshWorkspace(); }, []);
+  async function refreshOperations() {
+    setOperationsState('loading');
+    try {
+      const response = await fetch('/api/operations', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Operations health unavailable');
+      const data = await response.json() as OperationsSnapshot;
+      setOperations(data);
+      setOperationsCheckedAt(new Date().toISOString());
+      setOperationsState('ready');
+    } catch {
+      setOperationsState('error');
+    }
+  }
+
+  useEffect(() => {
+    void refreshWorkspace();
+    void refreshOperations();
+    setPilotRequests(readPilotRequests());
+    const syncPilotRequests = () => setPilotRequests(readPilotRequests());
+    window.addEventListener('storage', syncPilotRequests);
+    return () => window.removeEventListener('storage', syncPilotRequests);
+  }, []);
   useEffect(() => { window.localStorage.setItem(`${hqStorageVersion}-onboarding`, JSON.stringify(checked)); }, [checked]);
   useEffect(() => { window.localStorage.setItem(`${hqStorageVersion}-growth-approvals`, JSON.stringify(approvedGrowth)); }, [approvedGrowth]);
+  useEffect(() => { window.localStorage.setItem(`${hqStorageVersion}-pilot-reviewed`, JSON.stringify(reviewedPilotRequests)); }, [reviewedPilotRequests]);
 
   const filteredCustomers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -134,6 +199,7 @@ export default function MillsHeadquarters() {
   const liveTrades = workspace?.trades ?? [];
   const needsAttention = liveTrades.filter(trade => trade.status !== 'ON_TRACK').length;
   const discoveryRows = workspace?.contacts.length ? workspace.contacts.map(contact => ({ name: contact.company, person: contact.name, role: contact.role || 'Role unknown', stage: contact.status, detail: contact.nextStep || contact.notes || 'No next step recorded yet.' })) : discovery;
+  const openPilotRequests = pilotRequests.filter(request => !reviewedPilotRequests[request.id]);
 
   function toggleStep(id: string) {
     setChecked(current => ({ ...current, [id]: !current[id] }));
@@ -143,6 +209,11 @@ export default function MillsHeadquarters() {
   function approveGrowthItem(id: string, label: string) {
     setApprovedGrowth(current => ({ ...current, [id]: !current[id] }));
     setNotice(`${label} ${approvedGrowth[id] ? 'returned to draft' : 'approved locally'}. Nothing was published or sent.`);
+  }
+
+  function markPilotRequestReviewed(id: string) {
+    setReviewedPilotRequests(current => ({ ...current, [id]: !current[id] }));
+    setNotice(`${reviewedPilotRequests[id] ? 'Pilot request returned to the inbox' : 'Pilot request marked reviewed'} locally. No message was sent.`);
   }
 
   function exportDiscoveryContacts() {
@@ -194,6 +265,18 @@ export default function MillsHeadquarters() {
         <article><span><Handshake size={15}/> Trades checked in</span><strong>{liveTrades.length}</strong><small>{workspace ? `${workspace.messages.length} approved mock updates` : 'Loading local workspace'}</small></article>
         <article><span><Bell size={15}/> Needs attention</span><strong>{workspace ? needsAttention : 0}</strong><small>{needsAttention ? 'Review delayed or blocked trades' : 'No live pilot flags'}</small></article>
       </section>
+      <div className="hq-grid hq-ops-grid">
+        <section className="hq-panel hq-pilot-inbox" aria-label="Pilot inbox">
+          <div className="hq-section-heading"><div><span className="hq-kicker">PILOT INBOX</span><h2>New requests, ready for a human reply.</h2></div><span className="hq-badge mock">{openPilotRequests.length} open</span></div>
+          {!pilotRequests.length ? <div className="hq-empty hq-inline-empty"><strong>No pilot requests yet.</strong><span>Requests saved on the public page will appear here in this browser.</span></div> : <div className="hq-pilot-list">{pilotRequests.map(request => { const reviewed = Boolean(reviewedPilotRequests[request.id]); return <article className={`hq-pilot-row ${reviewed ? 'reviewed' : ''}`} key={request.id}><div className="hq-customer-avatar">{request.company.slice(0, 1).toUpperCase()}</div><div className="hq-pilot-main"><div className="hq-pilot-top"><strong>{request.company}</strong><span className={`hq-health ${reviewed ? 'good' : 'watch'}`}>{reviewed ? 'Reviewed' : 'New'}</span></div><small>{request.role} · {request.city} · {request.activeJobs}</small><p>{request.pain}</p><small>{request.email} · {new Date(request.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</small></div><button className="hq-link-button" onClick={() => markPilotRequestReviewed(request.id)}>{reviewed ? 'Return to inbox' : 'Mark reviewed'}</button></article>; })}</div>}
+        </section>
+        <section className="hq-panel hq-operations-panel" aria-label="System health">
+          <div className="hq-section-heading"><div><span className="hq-kicker">SYSTEM HEALTH</span><h2>Know whether the pilot is ready to run.</h2></div><button className="hq-text-button" onClick={() => void refreshOperations()} aria-label="Refresh system health"><RefreshCw size={14}/> Refresh</button></div>
+          {operationsState === 'loading' && <div className="hq-health-loading" role="status">Checking workspace, worker, and backup health…</div>}
+          {operationsState === 'error' && <div className="hq-health-error" role="alert"><strong>Health check unavailable.</strong><span>HQ is still in mock mode. Retry when the local operations API is available.</span><button className="hq-primary" onClick={() => void refreshOperations()}>Retry health check</button></div>}
+          {operationsState === 'ready' && operations && <><div className="hq-health-summary"><span className={`hq-health ${operations.ready ? 'good' : 'watch'}`}>{operations.ready ? 'Ready' : 'Watch'}</span><span>{operations.ready ? 'Core checks are passing.' : 'Review the checks below before relying on live pilot data.'}</span></div><div className="hq-health-details"><div><span>Mills worker</span><strong className={operations.workers.mills ? 'good-text' : 'risk-text'}>{operations.workers.mills ? 'Healthy' : 'Heartbeat missing'}</strong></div><div><span>Backup</span><strong className={operations.backupFresh ? 'good-text' : 'risk-text'}>{operations.backupFresh ? 'Fresh' : 'Missing or stale'}</strong></div><div><span>Active jobs</span><strong>{operations.counts.activeJobs}</strong></div><div><span>Pending drafts</span><strong>{operations.counts.pendingMessages}</strong></div></div><small className="hq-health-footnote">{operations.counts.lastBackup ? `Last backup ${new Date(operations.counts.lastBackup).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : 'No backup recorded yet'}{operationsCheckedAt ? ` · checked ${new Date(operationsCheckedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}</small></>}
+        </section>
+      </div>
       <div className="hq-grid">
         <section className="hq-panel">
           <div className="hq-section-heading"><div><span className="hq-kicker">CUSTOMER HEALTH</span><h2>Know who needs help before they ask.</h2></div><button className="hq-text-button" onClick={() => setSection('customers')}>View all <ChevronRight size={14}/></button></div>
