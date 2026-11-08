@@ -1,0 +1,2 @@
+ALTER TABLE "sync_job" ADD COLUMN "owner" text DEFAULT '09' NOT NULL;--> statement-breakpoint
+ALTER TABLE "sync_job" ADD CONSTRAINT "sync_job_owner_agent_id_fk" FOREIGN KEY ("owner") REFERENCES "public"."agent"("id") ON DELETE no action ON UPDATE no action;

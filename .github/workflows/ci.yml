@@ -1,0 +1,50 @@
+name: RecruitingOS checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: recruiting
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: recruiting_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U recruiting"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://recruiting:ci-only-password@127.0.0.1:5432/recruiting_test
+      TEST_DATABASE_URL: postgresql://recruiting:ci-only-password@127.0.0.1:5432/recruiting_test
+      APP_ORIGIN: http://127.0.0.1:3000
+      AUTH_MODE: local
+      DEPLOYMENT_ENV: local
+      DASHBOARD_PASSWORD: isolated-ci-password
+      AI_LIVE_ENABLED: "false"
+      CONNECTORS_LIVE_ENABLED: "false"
+      PG_DUMP_BIN: pg_dump
+      PG_RESTORE_BIN: pg_restore
+      BROWSER_CHANNEL: chromium
+      PLAYWRIGHT_CHANNEL: chromium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client-17
+      - run: npx playwright install --with-deps chromium
+      - run: npm run db:migrate && npm run typecheck && npm test
+      - run: npm run db:seed && npm run build
+      - name: Browser acceptance tests
+        run: |
+          npm run start > /tmp/recruiting-web.log 2>&1 &
+          npm run worker > /tmp/recruiting-worker.log 2>&1 &
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/api/health/ready && break || sleep 2; done
+          npm run test:e2e
+      - name: Build deployment image
+        run: docker build -t recruiting-os:ci .

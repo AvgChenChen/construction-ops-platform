@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "one_active_sync" ON "sync_job" USING btree ("schedule_id") WHERE state IN ('QUEUED','RUNNING');

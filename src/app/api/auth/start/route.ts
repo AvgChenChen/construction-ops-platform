@@ -1,0 +1,4 @@
+import { NextResponse } from 'next/server';
+import { validOrigin,allowLogin,cookieOptions,loginDestinationCookie,safeRedirectPath } from '@/lib/auth';
+import { startLogin,bindingCookie } from '@/lib/identity/oidc';
+export async function POST(req:Request){if(!validOrigin(req))return new Response('Forbidden',{status:403});if(!await allowLogin('oidc-start',30))return new Response('Try again shortly',{status:429});try{const {url,binding}=await startLogin();const destination=safeRedirectPath(new URL(req.url).searchParams.get('next'));const response=NextResponse.redirect(url,303);response.cookies.set(bindingCookie,binding,{...cookieOptions(),maxAge:600});response.cookies.set(loginDestinationCookie,destination,{...cookieOptions(),maxAge:600});return response;}catch{return new Response('Identity provider unavailable or not configured',{status:503});}}

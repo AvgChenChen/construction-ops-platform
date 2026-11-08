@@ -1,0 +1,6 @@
+mills.example.com {
+    # Run Caddy on the host or adjust this address for your private network.
+    reverse_proxy 127.0.0.1:3000
+    header Strict-Transport-Security "max-age=31536000"
+    # Access logs are deliberately not enabled here: OAuth callbacks contain codes.
+}
