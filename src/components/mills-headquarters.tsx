@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowUpRight, BarChart3, Bell, BriefcaseBusiness, CalendarDays, Check, CheckCircle2, ChevronRight, CircleHelp, ClipboardCheck, Gauge, Handshake, LayoutDashboard, Link2, Megaphone, MessageSquare, Plus, RefreshCw, Search, Send, ShieldCheck, Target, Users, Video, X } from 'lucide-react';
+import { Activity, ArrowUpRight, BarChart3, Bell, BriefcaseBusiness, CalendarDays, Check, CheckCircle2, ChevronRight, CircleHelp, ClipboardCheck, Download, Gauge, Handshake, LayoutDashboard, Link2, Megaphone, MessageSquare, Plus, RefreshCw, Search, Send, ShieldCheck, Target, Users, Video, X } from 'lucide-react';
+import { discoveryContactsToCsv, type DiscoveryCsvContact } from '@/lib/mills/csv';
 
 type Section = 'overview' | 'customers' | 'discovery' | 'onboarding' | 'growth';
 type CustomerHealth = 'HEALTHY' | 'WATCH' | 'AT_RISK';
@@ -20,7 +21,7 @@ type WorkspaceSnapshot = {
   job: { id: string; name: string; address: string | null; status: string };
   trades: Array<{ id: string; trade: string; company: string; contact: string; status: string }>;
   tasks: Array<{ id: string; title: string; tradeId: string; due: string; dependsOn: string[] }>;
-  contacts: Array<{ id: string; name: string; company: string; role: string; city: string; status: string; notes: string; nextStep: string }>;
+  contacts: Array<{ id: string; name: string; company: string; role: string; city: string; email: string; status: string; notes: string; nextStep: string }>;
   messages: Array<{ id: string; sourceTaskId: string; body: string; status: string; createdAt: string }>;
 };
 
@@ -144,6 +145,20 @@ export default function MillsHeadquarters() {
     setNotice(`${label} ${approvedGrowth[id] ? 'returned to draft' : 'approved locally'}. Nothing was published or sent.`);
   }
 
+  function exportDiscoveryContacts() {
+    const contacts: DiscoveryCsvContact[] = workspace?.contacts.length
+      ? workspace.contacts
+      : discovery.map(item => ({ name: item.person, company: item.name, role: item.role, city: '', email: '', status: item.stage.toUpperCase(), nextStep: '', notes: item.detail }));
+    const blob = new Blob([discoveryContactsToCsv(contacts)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mills-discovery-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setNotice('Discovery contacts exported locally. No external account was contacted.');
+  }
+
   return <div className="hq-page">
     <header className="hq-header">
       <div className="hq-header-inner">
@@ -193,7 +208,7 @@ export default function MillsHeadquarters() {
 
     {section === 'customers' && <section className="hq-panel hq-full-panel"><div className="hq-section-heading"><div><span className="hq-kicker">CUSTOMER DIRECTORY</span><h2>Every account, with the next useful action.</h2></div><button className="hq-primary" onClick={() => setNotice('New customer intake is mocked for now. Start with a discovery conversation.') }><Plus size={14}/> Add customer</button></div><div className="hq-search"><Search size={15}/><input aria-label="Search customers" placeholder="Search by company, city, or plan" value={query} onChange={event => setQuery(event.target.value)}/></div><div className="hq-customer-grid">{filteredCustomers.map(customer => <article className="hq-account-card" key={customer.name}><div className="hq-account-top"><span className="hq-customer-avatar">{customer.name.slice(0, 1)}</span><span className={`hq-health ${healthClass(customer.health)}`}>{healthLabel(customer.health)}</span></div><h3>{customer.name}</h3><p>{customer.location} · {customer.plan}</p><div className="hq-account-stats"><span><strong>{customer.jobs}</strong> active jobs</span><span><strong>{customer.lastActivity}</strong> last activity</span></div><div className="hq-account-next"><small>NEXT STEP</small><strong>{customer.nextStep}</strong></div><button className="hq-link-button" onClick={() => setNotice(`${customer.name} is still in local mock mode. No message was sent.`)}>Open account <ArrowUpRight size={13}/></button></article>)}</div>{!filteredCustomers.length && <div className="hq-empty">No customers match that search.</div>}</section>}
 
-    {section === 'discovery' && <div className="hq-grid"><section className="hq-panel"><div className="hq-section-heading"><div><span className="hq-kicker">CUSTOMER DISCOVERY</span><h2>Keep the questions close to the product.</h2></div><button className="hq-primary" onClick={() => setNotice('New discovery contact intake is mocked for now.') }><Plus size={14}/> Add contact</button></div><div className="hq-discovery-list">{discoveryRows.map(item => <article className="hq-discovery-row" key={`${item.name}-${item.person}`}><div className="hq-customer-avatar">{item.name.slice(0, 1)}</div><div><strong>{item.name}</strong><small>{item.person} · {item.role}</small><p>{item.detail}</p></div><span className="hq-stage">{item.stage}</span></article>)}</div></section><aside className="hq-side-stack"><section className="hq-panel"><div className="hq-section-heading"><div><span className="hq-kicker">CALL GUIDE</span><h2>Ask about the last delay.</h2></div><MessageSquare size={17}/></div><ol className="hq-question-list"><li>What was the last trade delay you had to coordinate?</li><li>How did you find out, and who did you call next?</li><li>What did the delay change for the following crew?</li><li>What would make a coordination tool worth paying for?</li></ol></section><section className="hq-panel hq-callout"><strong>Research rule</strong><p>Capture the actual workflow before showing the product. A useful no is better than a polite maybe.</p></section></aside></div>}
+    {section === 'discovery' && <div className="hq-grid"><section className="hq-panel"><div className="hq-section-heading"><div><span className="hq-kicker">CUSTOMER DISCOVERY</span><h2>Keep the questions close to the product.</h2></div><div className="hq-section-actions"><button className="hq-text-button" onClick={exportDiscoveryContacts}><Download size={14}/> Export CSV</button><button className="hq-primary" onClick={() => setNotice('New discovery contact intake is mocked for now.') }><Plus size={14}/> Add contact</button></div></div><div className="hq-discovery-list">{discoveryRows.map(item => <article className="hq-discovery-row" key={`${item.name}-${item.person}`}><div className="hq-customer-avatar">{item.name.slice(0, 1)}</div><div><strong>{item.name}</strong><small>{item.person} · {item.role}</small><p>{item.detail}</p></div><span className="hq-stage">{item.stage}</span></article>)}</div></section><aside className="hq-side-stack"><section className="hq-panel"><div className="hq-section-heading"><div><span className="hq-kicker">CALL GUIDE</span><h2>Ask about the last delay.</h2></div><MessageSquare size={17}/></div><ol className="hq-question-list"><li>What was the last trade delay you had to coordinate?</li><li>How did you find out, and who did you call next?</li><li>What did the delay change for the following crew?</li><li>What would make a coordination tool worth paying for?</li></ol></section><section className="hq-panel hq-callout"><strong>Research rule</strong><p>Capture the actual workflow before showing the product. A useful no is better than a polite maybe.</p></section></aside></div>}
 
     {section === 'onboarding' && <div className="hq-grid"><section className="hq-panel"><div className="hq-section-heading"><div><span className="hq-kicker">ONBOARDING BOARD</span><h2>Move a customer from first hello to first saved day.</h2></div><span className="hq-badge good"><Check size={12}/> Mock checklist</span></div><div className="hq-onboarding-list">{onboardingSteps.map(step => <label className={`hq-onboarding-row ${checked[step.id] ? 'done' : ''}`} key={step.id}><input type="checkbox" checked={Boolean(checked[step.id])} onChange={() => toggleStep(step.id)}/><span className="hq-checkmark">{checked[step.id] && <Check size={13}/>}</span><span><strong>{step.label}</strong><small>Owner: {step.owner}</small></span></label>)}</div></section><aside className="hq-side-stack"><section className="hq-panel"><div className="hq-section-heading"><div><span className="hq-kicker">PILOT READINESS</span><h2>Harbourview Projects</h2></div><span className="hq-health risk">At risk</span></div><div className="hq-readiness"><div><span>Workspace</span><strong>Ready</strong></div><div><span>First job</span><strong>Waiting</strong></div><div><span>Trade roster</span><strong>Needs input</strong></div><div><span>First delay loop</span><strong>Not started</strong></div></div><button className="hq-primary wide" onClick={() => setNotice('Reminder prepared locally. No customer was contacted.')}>Prepare reminder</button></section><section className="hq-panel hq-principle"><span className="hq-kicker">SUCCESS SIGNAL</span><p>The first win is not a dashboard view. It is one saved coordination call on a real job.</p></section></aside></div>}
 

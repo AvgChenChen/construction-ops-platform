@@ -157,3 +157,17 @@ test('Mills headquarters growth console keeps marketing drafts approval-gated', 
   await expect(persistedDraft.getByText('Approved', { exact: true })).toBeVisible();
 });
 
+test('Mills headquarters can export discovery contacts locally', async ({ page }) => {
+  await page.goto('/hq');
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByLabel('Workspace password').fill(process.env.DASHBOARD_PASSWORD!);
+  await page.getByRole('button', { name: 'Open Mills' }).click();
+  await expect(page).toHaveURL(/\/hq/);
+  await page.getByRole('button', { name: /^Discovery/ }).click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: /Export CSV/i }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^mills-discovery-\d{4}-\d{2}-\d{2}\.csv$/);
+  await expect(page.getByText('Discovery contacts exported locally')).toBeVisible();
+});
+
