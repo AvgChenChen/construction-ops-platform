@@ -1,29 +1,28 @@
-# syntax=docker/dockerfile:1
-# Multi-stage build: install deps, build a standalone Next.js server, copy only what runs.
-
-FROM node:22-bookworm-slim AS base
-RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
-
-FROM base AS deps
 COPY package.json package-lock.json ./
-COPY prisma ./prisma
 RUN npm ci
-
-# The build stage keeps the full toolchain, so docker-compose reuses it to run migrations and the seed.
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_OUTPUT=standalone
-RUN npx prisma generate && npm run build
+RUN npm run build
 
-FROM base AS runner
-ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
-RUN groupadd --system --gid 1001 app && useradd --system --uid 1001 --gid app app
-COPY --from=build --chown=app:app /app/.next/standalone ./
-COPY --from=build --chown=app:app /app/.next/static ./.next/static
-USER app
+FROM node:24-bookworm-slim AS runtime
+ENV NODE_ENV=production DEPLOYMENT_ENV=production AUTH_MODE=oidc NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+ && install -d /usr/share/postgresql-common/pgdg \
+ && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+ && echo 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main' > /etc/apt/sources.list.d/pgdg.list \
+ && apt-get update && apt-get install -y --no-install-recommends postgresql-client-18 \
+ && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev \
+ && mkdir -p /backups /app/.next/cache && chown -R node:node /backups /app \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build --chown=node:node /app/.next ./.next
+COPY --from=build --chown=node:node /app/src ./src
+COPY --from=build --chown=node:node /app/scripts ./scripts
+COPY --from=build --chown=node:node /app/db ./db
+COPY --from=build --chown=node:node /app/next.config.ts /app/tsconfig.json ./
+USER node
 EXPOSE 3000
-HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "server.js"]
+CMD ["npm","run","start:container"]

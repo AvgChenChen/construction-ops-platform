@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: recruiting
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: recruiting
+    ports: ["127.0.0.1:54329:5432"]
+    volumes: ["recruiting-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U recruiting"]
+      interval: 5s
+      retries: 10
+volumes:
+  recruiting-data:

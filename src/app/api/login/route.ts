@@ -1,0 +1,4 @@
+import { NextResponse } from 'next/server';
+import { validPassword,validOrigin,makeSession,cookieName,cookieOptions,allowLogin,safeRedirectPath } from '@/lib/auth';
+import { appOrigin,localAllowed } from '@/lib/ops/config';
+export async function POST(req:Request){if(!localAllowed()||!validOrigin(req))return new Response('Forbidden',{status:403});if(!await allowLogin('local-password'))return new Response('Too many attempts; wait one minute',{status:429});const form=await req.formData();const destination=safeRedirectPath(String(form.get('next')??'/mills'));if(!validPassword(String(form.get('password')??'')))return NextResponse.redirect(new URL('/login?error=1',appOrigin()),303);const response=NextResponse.redirect(new URL(destination,appOrigin()),303);response.cookies.set(cookieName,await makeSession(),cookieOptions());return response;}

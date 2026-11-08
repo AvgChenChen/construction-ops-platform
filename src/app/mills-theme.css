@@ -1,0 +1,411 @@
+/* Mills visual system: dark editorial console, orange action color, quiet status tones. */
+:root {
+  --mills-bg: #0d0f0d;
+  --mills-surface: #151815;
+  --mills-surface-raised: #191c18;
+  --mills-border: #2a2e29;
+  --mills-border-strong: #3a3e38;
+  --mills-ink: #f3efe6;
+  --mills-muted: #a5a79f;
+  --mills-dim: #777c74;
+  --mills-orange: #ff8138;
+  --mills-orange-soft: #3a2418;
+  --mills-green: #8fd0ae;
+  --mills-amber: #e0bd79;
+  --mills-red: #ff9d83;
+}
+
+body:has(.mills-page),
+body:has(.login) {
+  background: var(--mills-bg);
+  color: var(--mills-ink);
+}
+
+.mills-page {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  padding: 0 0 64px;
+  overflow: hidden;
+  color: var(--mills-ink);
+  background-color: var(--mills-bg);
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+    radial-gradient(circle at 72% 0%, rgba(255,129,56,.13), transparent 32rem);
+  background-size: 48px 48px, 48px 48px, auto;
+}
+
+.mills-page::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  content: '';
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(13,15,13,.02), rgba(13,15,13,.75) 74%, var(--mills-bg));
+}
+
+.mills-header,
+.mills-notice,
+.mills-tabs,
+.mills-stats,
+.mills-layout,
+.mills-discovery-grid,
+.mills-pricing-grid,
+.mills-footer {
+  position: relative;
+  z-index: 1;
+  width: min(1280px, calc(100% - 84px));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.mills-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 36px;
+  min-height: 470px;
+  padding: 26px 0 58px;
+  border-bottom: 1px solid var(--mills-border);
+}
+
+.mills-wordmark,
+.login-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--mills-ink);
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -1.4px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.mills-wordmark span,
+.login-wordmark span { color: var(--mills-orange); }
+
+.mills-header .mills-wordmark { margin-bottom: 78px; }
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--mills-orange);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .15em;
+}
+
+.eyebrow-rule {
+  display: block;
+  width: 20px;
+  height: 2px;
+  flex: 0 0 auto;
+  background: var(--mills-orange);
+}
+
+.mills-header h1 {
+  max-width: 800px;
+  margin: 18px 0 20px;
+  color: var(--mills-ink);
+  font-size: clamp(3.7rem, 7.3vw, 7.5rem);
+  font-weight: 800;
+  letter-spacing: -.075em;
+  line-height: .91;
+}
+
+.mills-header p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--mills-muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.mills-header-actions {
+  align-self: flex-start;
+  min-width: 205px;
+  margin-top: 88px;
+}
+
+.mills-console-label {
+  display: block;
+  margin-bottom: 14px;
+  color: var(--mills-dim);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: .08em;
+  line-height: 1.4;
+}
+
+.mills-hq-link {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 12px;
+  color: var(--mills-orange);
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.mills-hq-link:hover { color: #ffb27d; }
+
+.mills-page .badge {
+  border: 1px solid var(--mills-border);
+  background: #1d211d;
+  color: var(--mills-muted);
+}
+
+.mills-page .badge.mock {
+  border-color: #4d3826;
+  background: var(--mills-orange-soft);
+  color: #ffb27d;
+}
+
+.mills-page .badge.green {
+  border-color: #294333;
+  background: #17261d;
+  color: var(--mills-green);
+}
+
+.mills-page .badge.red {
+  border-color: #56342d;
+  background: #2c1b18;
+  color: var(--mills-red);
+}
+
+.mills-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 24px;
+  margin-bottom: 26px;
+  padding: 14px 16px;
+  border: 1px solid var(--mills-border);
+  border-radius: 9px;
+  background: rgba(21,24,21,.86);
+  color: var(--mills-muted);
+  font-size: 11px;
+}
+
+.mills-notice svg { color: var(--mills-orange); flex: 0 0 auto; }
+.mills-notice strong { color: var(--mills-ink); }
+
+.mills-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--mills-border);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.mills-tabs button {
+  flex: 0 0 auto;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--mills-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  padding: 13px 16px 12px;
+  text-transform: uppercase;
+}
+
+.mills-tabs button:hover { background: rgba(255,255,255,.04); color: var(--mills-ink); }
+.mills-tabs button.active { border-bottom-color: var(--mills-orange); background: transparent; color: var(--mills-ink); }
+.mills-tabs button span { border: 1px solid #4d3826; background: var(--mills-orange-soft); color: #ffb27d; }
+
+.mills-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+
+.mills-stats article,
+.mills-page .panel {
+  border: 1px solid var(--mills-border);
+  border-radius: 10px;
+  background: rgba(21,24,21,.92);
+  box-shadow: 0 16px 38px rgba(0,0,0,.12);
+  color: var(--mills-ink);
+}
+
+.mills-stats article { padding: 18px; }
+.mills-stats small { color: var(--mills-dim); font-size: 10px; text-transform: uppercase; letter-spacing: .09em; }
+.mills-stats strong { color: var(--mills-ink); font-size: 34px; font-weight: 700; letter-spacing: -.06em; }
+.mills-stats span { color: var(--mills-muted); font-size: 10px; }
+
+.mills-page .panel { padding: 22px; }
+.mills-page .section-heading h2,
+.mills-page h2,
+.mills-page h3 { color: var(--mills-ink); }
+.mills-page .muted { color: var(--mills-dim); }
+.mills-page p { color: var(--mills-muted); }
+
+.mills-layout,
+.mills-discovery-grid,
+.mills-pricing-grid { grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr); gap: 16px; }
+.mills-layout { display: grid; align-items: start; }
+.mills-discovery-grid,
+.mills-pricing-grid { display: grid; }
+.mills-side-stack { display: grid; align-content: start; gap: 16px; }
+.mills-page .mills-panel { background: rgba(21,24,21,.94); }
+
+.mills-job-meta {
+  border-top-color: var(--mills-border);
+  border-bottom-color: var(--mills-border);
+  color: var(--mills-dim);
+}
+.mills-job-meta strong { color: var(--mills-ink); }
+
+.mills-trade,
+.mills-task,
+.mills-contact,
+.mills-form,
+.mills-price-card {
+  border-color: var(--mills-border);
+  background: rgba(25,28,24,.72);
+}
+
+.mills-trade:hover,
+.mills-task:hover,
+.mills-contact:hover { border-color: var(--mills-border-strong); background: var(--mills-surface-raised); }
+.mills-trade-icon,
+.mills-contact-avatar { border: 1px solid #4d3826; background: var(--mills-orange-soft); color: var(--mills-orange); }
+.mills-trade-copy small,
+.mills-task-copy small,
+.mills-contact-copy small { color: var(--mills-dim); }
+
+.mills-page input,
+.mills-page select,
+.mills-page textarea {
+  border: 1px solid var(--mills-border-strong);
+  background: #10130f;
+  color: var(--mills-ink);
+  color-scheme: dark;
+}
+
+.mills-page input::placeholder,
+.mills-page textarea::placeholder { color: #6f746c; }
+.mills-page input:focus,
+.mills-page select:focus,
+.mills-page textarea:focus { border-color: var(--mills-orange); outline-color: var(--mills-orange); }
+
+.mills-task.impacted,
+.mills-impact { border-color: #5a382e; background: #241917; }
+.mills-impact pre,
+.mills-page pre { border: 1px solid var(--mills-border); background: #0f120f; color: #c9c4b9; }
+.mills-page .checkbox { color: var(--mills-muted); }
+.mills-page .checkbox input { accent-color: var(--mills-orange); }
+
+.mills-page .primary {
+  border-color: var(--mills-orange);
+  background: var(--mills-orange);
+  color: #17110d;
+  box-shadow: 0 8px 24px rgba(255,129,56,.18);
+  font-weight: 700;
+}
+.mills-page .primary:hover { border-color: #ff9a5d; background: #ff9a5d; }
+
+.mills-empty { color: var(--mills-green); }
+.mills-empty span { color: var(--mills-dim); }
+.mills-quote { border-left-color: var(--mills-orange); background: #1c211b; color: var(--mills-ink); }
+.mills-questions { color: var(--mills-muted); }
+.mills-target { border-bottom-color: var(--mills-border); }
+.mills-target strong { color: var(--mills-orange); }
+.mills-target span { color: var(--mills-muted); }
+.mills-price-card.recommended { border-color: #724228; background: #211914; }
+.mills-price-card h3 { color: var(--mills-ink); }
+.mills-price-card p,
+.mills-price-card li { color: var(--mills-muted); }
+.mills-callout { border-color: #564522; background: #242016; color: var(--mills-amber); }
+.mills-callout strong { color: #f4cf84; }
+.mills-footer { padding-top: 28px; color: var(--mills-dim); }
+
+.login {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--mills-bg);
+  background-image:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px),
+    radial-gradient(circle at 75% 0%, rgba(255,129,56,.14), transparent 30rem);
+  background-size: 48px 48px, 48px 48px, auto;
+  color: var(--mills-ink);
+}
+
+.login-grid { position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(13,15,13,0), rgba(13,15,13,.8)); }
+.login-inner { width: min(620px, calc(100% - 44px)); margin: 0 auto; padding: 48px 0 42px; }
+.login-wordmark { margin-bottom: 86px; }
+.login h1 { max-width: 580px; margin: 17px 0 14px; color: var(--mills-ink); font-size: clamp(3.5rem, 8vw, 6.5rem); letter-spacing: -.075em; line-height: .92; }
+.login-inner > p { max-width: 500px; color: var(--mills-muted); font-size: 16px; }
+.login .panel { margin-top: 38px; border: 1px solid var(--mills-border); border-radius: 10px; background: rgba(21,24,21,.94); box-shadow: 0 20px 60px rgba(0,0,0,.2); color: var(--mills-ink); }
+.login-panel-kicker { margin-bottom: 13px; color: var(--mills-orange); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10px; letter-spacing: .13em; }
+.login .panel h2 { font-size: 23px; letter-spacing: -.04em; }
+.login .panel p { color: var(--mills-muted); }
+.login .panel small { color: var(--mills-dim); }
+.login .panel input { border-color: var(--mills-border-strong); background: #10130f; color: var(--mills-ink); }
+.login .primary { width: 100%; margin-bottom: 20px; border-color: var(--mills-orange); background: var(--mills-orange); color: #17110d; font-weight: 700; }
+.login .primary:hover { border-color: #ff9a5d; background: #ff9a5d; }
+.login-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 28px; color: var(--mills-dim); font-size: 10px; }
+
+@media (max-width: 980px) {
+  .mills-header,
+  .mills-notice,
+  .mills-tabs,
+  .mills-stats,
+  .mills-layout,
+  .mills-discovery-grid,
+  .mills-pricing-grid,
+  .mills-footer { width: min(100% - 40px, 760px); }
+  .mills-header { min-height: 420px; }
+  .mills-layout,
+  .mills-discovery-grid,
+  .mills-pricing-grid { grid-template-columns: 1fr; }
+  .mills-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 640px) {
+  .mills-header,
+  .mills-notice,
+  .mills-tabs,
+  .mills-stats,
+  .mills-layout,
+  .mills-discovery-grid,
+  .mills-pricing-grid,
+  .mills-footer { width: calc(100% - 28px); }
+  .mills-header { display: block; min-height: auto; padding: 22px 0 42px; }
+  .mills-header .mills-wordmark { margin-bottom: 62px; }
+  .mills-header h1 { font-size: clamp(3.25rem, 16vw, 5.1rem); }
+  .mills-header p { font-size: 14px; }
+  .mills-header-actions { margin-top: 25px; }
+  .mills-stats { gap: 8px; }
+  .mills-stats article { padding: 14px; }
+  .mills-stats strong { font-size: 28px; }
+  .mills-page .panel { padding: 17px; }
+  .mills-trade { flex-wrap: wrap; }
+  .mills-trade select { margin-left: auto; }
+  .mills-trade .badge { margin-left: 42px; }
+  .mills-contact { flex-wrap: wrap; }
+  .mills-contact-controls { width: 100%; margin-left: 43px; }
+  .mills-price-card { display: block; }
+  .mills-price-card ul { margin-top: 15px; }
+  .mills-footer,
+  .login-footer { display: block; }
+  .mills-footer span,
+  .login-footer span { display: block; margin-top: 5px; }
+  .login-inner { width: calc(100% - 28px); padding-top: 28px; }
+  .login-wordmark { margin-bottom: 66px; }
+  .login h1 { font-size: clamp(3.1rem, 16vw, 5rem); }
+  .login .panel { padding: 20px; }
+}

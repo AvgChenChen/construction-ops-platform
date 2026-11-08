@@ -1,0 +1,3 @@
+import 'dotenv/config';
+import { restoreBackup } from '../src/lib/ops/backup';
+const [path,confirmation]=process.argv.slice(2);if(!path||!confirmation||!process.env.RESTORE_DATABASE_URL)throw new Error('Usage: npm run backup:restore -- encrypted-file empty_database_restore; set RESTORE_DATABASE_URL');restoreBackup(path,process.env.RESTORE_DATABASE_URL,confirmation).then(result=>console.log(JSON.stringify(result))).catch(()=>{console.error('Restore failed. Target must be an empty separate _restore database; verify the encryption key and PostgreSQL clients.');process.exitCode=1;});

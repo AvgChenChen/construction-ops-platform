@@ -1,0 +1,32 @@
+# Configure your existing Alertmanager and notification receiver separately.
+groups:
+  - name: mills
+    rules:
+      - alert: MillsMetricsUnavailable
+        expr: up{job="mills"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Mills metrics cannot be scraped
+      - alert: MillsWorkerUnavailable
+        expr: mills_worker_healthy{loop="mills"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: The Mills maintenance worker has stopped or repeatedly failed
+      - alert: MillsBackupStale
+        expr: mills_backup_fresh == 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: No encrypted Mills backup was recorded within 26 hours
+      - alert: MillsTradesNeedAttention
+        expr: mills_attention_trades > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: One or more trades are delayed or blocked in Mills

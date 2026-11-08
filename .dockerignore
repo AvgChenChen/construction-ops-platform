@@ -1,10 +1,10 @@
 node_modules
 .next
 .git
-.env
-.env.*
-!.env.example
+.env*
+.local
 test-results
 playwright-report
-coverage
-docs/screenshots
+docs/*.png
+*.enc
+*.dump

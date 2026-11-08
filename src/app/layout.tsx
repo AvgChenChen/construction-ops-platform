@@ -1,17 +1,8 @@
-import type { Metadata } from "next";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
-import "./globals.css";
-
-export const metadata: Metadata = {
-  title: { default: "Construction Ops", template: "%s · Construction Ops" },
-  description: "Open-source prototype for coordinating subcontractors on active construction projects.",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body>{children}</body>
-    </html>
-  );
-}
+import './globals.css';
+import './mills.css';
+import './mills-theme.css';
+import './landing.css';
+import './ui-primitives.css';
+import './hq.css';
+export const metadata={title:'Mills · AI coordination for construction trades',description:'Mills keeps general contractors and subcontractors on the same schedule, with human-approved coordination before a delay becomes a lost day.'};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>;}
