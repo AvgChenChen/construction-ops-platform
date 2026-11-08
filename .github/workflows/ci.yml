@@ -23,8 +23,6 @@ jobs:
       AUTH_MODE: local
       DEPLOYMENT_ENV: local
       DASHBOARD_PASSWORD: isolated-ci-password
-      PG_DUMP_BIN: pg_dump
-      PG_RESTORE_BIN: pg_restore
       BROWSER_CHANNEL: chromium
       PLAYWRIGHT_CHANNEL: chromium
     steps:
@@ -34,7 +32,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: sudo apt-get update && sudo apt-get install -y postgresql-client-17
       - run: npx playwright install --with-deps chromium
       - name: Validate configuration
         run: npm run ops:preflight
