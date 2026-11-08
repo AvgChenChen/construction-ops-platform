@@ -1,4 +1,4 @@
-name: RecruitingOS checks
+name: Mills checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -9,22 +9,20 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: recruiting
+          POSTGRES_USER: mills
           POSTGRES_PASSWORD: ci-only-password
-          POSTGRES_DB: recruiting_test
+          POSTGRES_DB: mills_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U recruiting"
+          --health-cmd "pg_isready -U mills"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://recruiting:ci-only-password@127.0.0.1:5432/recruiting_test
-      TEST_DATABASE_URL: postgresql://recruiting:ci-only-password@127.0.0.1:5432/recruiting_test
+      DATABASE_URL: postgresql://mills:ci-only-password@127.0.0.1:5432/mills_test
+      TEST_DATABASE_URL: postgresql://mills:ci-only-password@127.0.0.1:5432/mills_test
       APP_ORIGIN: http://127.0.0.1:3000
       AUTH_MODE: local
       DEPLOYMENT_ENV: local
       DASHBOARD_PASSWORD: isolated-ci-password
-      AI_LIVE_ENABLED: "false"
-      CONNECTORS_LIVE_ENABLED: "false"
       PG_DUMP_BIN: pg_dump
       PG_RESTORE_BIN: pg_restore
       BROWSER_CHANNEL: chromium
@@ -38,13 +36,17 @@ jobs:
       - run: npm ci
       - run: sudo apt-get update && sudo apt-get install -y postgresql-client-17
       - run: npx playwright install --with-deps chromium
-      - run: npm run db:migrate && npm run typecheck && npm test
-      - run: npm run db:seed && npm run build
+      - name: Validate configuration
+        run: npm run ops:preflight
+      - name: Migrate and test
+        run: npm run db:migrate && npm run typecheck && npm test
+      - name: Build application
+        run: npm run build
       - name: Browser acceptance tests
         run: |
-          npm run start > /tmp/recruiting-web.log 2>&1 &
-          npm run worker > /tmp/recruiting-worker.log 2>&1 &
+          npm run start > /tmp/mills-web.log 2>&1 &
+          npm run worker > /tmp/mills-worker.log 2>&1 &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/api/health/ready && break || sleep 2; done
           npm run test:e2e
       - name: Build deployment image
-        run: docker build -t recruiting-os:ci .
+        run: docker build -t mills:ci .
