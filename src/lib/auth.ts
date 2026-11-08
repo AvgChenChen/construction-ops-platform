@@ -5,7 +5,18 @@ export type Actor = { id: string; role: 'operator' | 'worker' | 'viewer' };
 export const cookieName='mills_session';
 export const loginDestinationCookie='mills_login_destination';
 export const hash=(value:string)=>createHash('sha256').update(value).digest('hex');
-export function safeRedirectPath(value:string|null|undefined){const destination=value??'/mills';return destination.startsWith('/')&&!destination.startsWith('//')&&!destination.startsWith('/api')?destination:'/mills';}
+export function safeRedirectPath(value: string | null | undefined) {
+  const destination = value ?? '/mills';
+  if (!destination.startsWith('/') || destination.startsWith('//')) return '/mills';
+  try {
+    const origin = new URL(appOrigin());
+    const resolved = new URL(destination, origin);
+    if (resolved.origin !== origin.origin || resolved.pathname.startsWith('/api')) return '/mills';
+    return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+  } catch {
+    return '/mills';
+  }
+}
 export function equal(a:string,b:string){const x=Buffer.from(a),y=Buffer.from(b);return x.length===y.length&&timingSafeEqual(x,y);}
 export function configured(){return oidcConfigured()||(localAllowed()&&!!process.env.DASHBOARD_PASSWORD);}
 export function validPassword(value:string){return localAllowed()&&configured()&&equal(value,process.env.DASHBOARD_PASSWORD??'');}
