@@ -76,6 +76,21 @@ test('contractor workspace shows a scoped trade view without outbound messaging'
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+test('contractor workspace exposes a retry state when the pilot API is unavailable', async ({ page }) => {
+  await page.goto('/contractor');
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByLabel('Workspace password').fill(process.env.DASHBOARD_PASSWORD!);
+  await page.getByRole('button', { name: 'Open Mills' }).click();
+  await expect(page).toHaveURL(/\/contractor/);
+  await page.route('**/api/mills/contractor', route => route.abort());
+  await page.reload();
+  await expect(page.getByRole('alert').filter({ hasText: 'could not load your workspace' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+  await page.unroute('**/api/mills/contractor');
+  await page.getByRole('button', { name: 'Retry' }).click();
+  await expect(page.getByRole('heading', { name: 'Your work, without the group-text scramble.' })).toBeVisible();
+});
+
 test('Mills headquarters keeps customer health and onboarding in view', async ({ page }) => {
   await page.goto('/hq');
   await expect(page).toHaveURL(/\/login/);
@@ -89,9 +104,29 @@ test('Mills headquarters keeps customer health and onboarding in view', async ({
   await expect(page.getByRole('heading', { name: 'Every account, with the next useful action.' })).toBeVisible();
   await page.getByLabel('Search customers').fill('Toronto');
   await expect(page.getByText('Toronto Renovation Co.')).toBeVisible();
-  await page.getByRole('button', { name: /Onboarding/i }).click();
+  await page.getByRole('button', { name: 'Onboarding', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Move a customer from first hello to first saved day.' })).toBeVisible();
+  const walkthrough = page.getByRole('checkbox', { name: 'Live-job walkthrough completed' });
+  await page.getByText('Live-job walkthrough completed', { exact: true }).click();
+  await page.reload();
+  await page.getByRole('button', { name: 'Onboarding', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Live-job walkthrough completed' })).toBeChecked();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('Mills headquarters exposes a retry state when live workspace data is unavailable', async ({ page }) => {
+  await page.goto('/hq');
+  await expect(page).toHaveURL(/\/login/);
+  await page.getByLabel('Workspace password').fill(process.env.DASHBOARD_PASSWORD!);
+  await page.getByRole('button', { name: 'Open Mills' }).click();
+  await expect(page).toHaveURL(/\/hq/);
+  await page.route('**/api/mills', route => route.abort());
+  await page.reload();
+  await expect(page.getByRole('alert').filter({ hasText: 'Live workspace data is unavailable' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+  await page.unroute('**/api/mills');
+  await page.getByRole('button', { name: 'Retry' }).click();
+  await expect(page.getByText('Last synced')).toBeVisible();
 });
 
 test('Mills headquarters growth console keeps marketing drafts approval-gated', async ({ page }) => {
@@ -116,4 +151,9 @@ test('Mills headquarters growth console keeps marketing drafts approval-gated', 
   await expect(draft.getByText('Approved', { exact: true })).toBeVisible();
   await expect(page.getByText('approved locally')).toBeVisible();
   await expect(page.getByText('No email, LinkedIn message, or social post is sent from HQ.')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: /Growth/i }).click();
+  const persistedDraft = page.getByRole('article').filter({ hasText: 'The 7:02 AM delivery problem' });
+  await expect(persistedDraft.getByText('Approved', { exact: true })).toBeVisible();
 });
+

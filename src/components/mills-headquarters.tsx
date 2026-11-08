@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowUpRight, BarChart3, Bell, BriefcaseBusiness, CalendarDays, Check, CheckCircle2, ChevronRight, CircleHelp, ClipboardCheck, Gauge, Handshake, LayoutDashboard, Link2, Megaphone, MessageSquare, Plus, Search, Send, ShieldCheck, Target, Users, Video, X } from 'lucide-react';
+import { Activity, ArrowUpRight, BarChart3, Bell, BriefcaseBusiness, CalendarDays, Check, CheckCircle2, ChevronRight, CircleHelp, ClipboardCheck, Gauge, Handshake, LayoutDashboard, Link2, Megaphone, MessageSquare, Plus, RefreshCw, Search, Send, ShieldCheck, Target, Users, Video, X } from 'lucide-react';
 
 type Section = 'overview' | 'customers' | 'discovery' | 'onboarding' | 'growth';
 type CustomerHealth = 'HEALTHY' | 'WATCH' | 'AT_RISK';
@@ -23,6 +23,24 @@ type WorkspaceSnapshot = {
   contacts: Array<{ id: string; name: string; company: string; role: string; city: string; status: string; notes: string; nextStep: string }>;
   messages: Array<{ id: string; sourceTaskId: string; body: string; status: string; createdAt: string }>;
 };
+
+type SyncState = 'loading' | 'ready' | 'error';
+const hqStorageVersion = 'mills-hq-v1';
+
+function readStoredRecord(key: string, fallback: Record<string, boolean>) {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const stored = window.localStorage.getItem(`${hqStorageVersion}-${key}`);
+    return stored ? JSON.parse(stored) as Record<string, boolean> : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function syncLabel(value: string | null) {
+  if (!value) return 'Not synced yet';
+  return `Last synced ${new Date(value).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+}
 
 const customers: Customer[] = [
   { name: 'Toronto Renovation Co.', location: 'Toronto, ON', jobs: 2, plan: 'Founding pilot', health: 'HEALTHY', lastActivity: '12 min ago', nextStep: 'Review first live-job walkthrough' },
@@ -74,25 +92,37 @@ function healthClass(health: CustomerHealth) {
 export default function MillsHeadquarters() {
   const [section, setSection] = useState<Section>('overview');
   const [query, setQuery] = useState('');
-  const [checked, setChecked] = useState<Record<string, boolean>>(() => Object.fromEntries(onboardingSteps.map(step => [step.id, step.done])));
+  const [checked, setChecked] = useState<Record<string, boolean>>(() => readStoredRecord('onboarding', Object.fromEntries(onboardingSteps.map(step => [step.id, step.done]))));
   const [notice, setNotice] = useState('');
   const [workspace, setWorkspace] = useState<WorkspaceSnapshot | null>(null);
-  const [approvedGrowth, setApprovedGrowth] = useState<Record<string, boolean>>({});
+  const [approvedGrowth, setApprovedGrowth] = useState<Record<string, boolean>>(() => readStoredRecord('growth-approvals', {}));
+  const [syncState, setSyncState] = useState<SyncState>('loading');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
-  useEffect(() => {
+  async function refreshWorkspace() {
+    setSyncState('loading');
     let active = true;
-    void fetch('/api/mills', { cache: 'no-store' }).then(async response => {
+    try {
+      const response = await fetch('/api/mills', { cache: 'no-store' });
       if (!response.ok) throw new Error('Mills workspace unavailable');
-      return await response.json() as WorkspaceSnapshot;
-    }).then(data => {
+      const data = await response.json() as WorkspaceSnapshot;
       if (!active) return;
       setWorkspace(data);
       setChecked(current => ({ ...current, workspace: true, job: Boolean(data.job), trades: data.trades.length > 0 }));
-    }).catch(() => {
-      if (active) setNotice('Showing the local HQ mock while the pilot workspace reconnects.');
-    });
-    return () => { active = false; };
-  }, []);
+      setLastSyncedAt(new Date().toISOString());
+      setSyncState('ready');
+      setNotice('');
+    } catch {
+      if (!active) return;
+      setSyncState('error');
+      setNotice('Showing the local HQ mock while the pilot workspace reconnects.');
+    }
+    active = false;
+  }
+
+  useEffect(() => { void refreshWorkspace(); }, []);
+  useEffect(() => { window.localStorage.setItem(`${hqStorageVersion}-onboarding`, JSON.stringify(checked)); }, [checked]);
+  useEffect(() => { window.localStorage.setItem(`${hqStorageVersion}-growth-approvals`, JSON.stringify(approvedGrowth)); }, [approvedGrowth]);
 
   const filteredCustomers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -125,7 +155,7 @@ export default function MillsHeadquarters() {
         </div>
         <div className="hq-header-side">
           <span className="hq-console-label">// INTERNAL OPERATIONS · TORONTO FIRST</span>
-          <div className="hq-header-actions"><span className="hq-badge mock"><ShieldCheck size={12}/> {workspace ? 'LOCAL DATA' : 'MOCK MODE'}</span><span className={`hq-badge ${needsAttention ? 'risk' : 'good'}`}><Activity size={12}/> {needsAttention ? `${needsAttention} trade${needsAttention === 1 ? '' : 's'} need review` : 'All systems steady'}</span></div>
+          <div className="hq-header-actions"><span className="hq-badge mock"><ShieldCheck size={12}/> {workspace ? 'LOCAL DATA' : 'MOCK MODE'}</span><span className={`hq-badge ${needsAttention ? 'risk' : 'good'}`}><Activity size={12}/> {needsAttention ? `${needsAttention} trade${needsAttention === 1 ? '' : 's'} need review` : 'All systems steady'}</span><span className={`hq-badge ${syncState === 'error' ? 'risk' : syncState === 'ready' ? 'good' : 'mock'}`} role="status">{syncLabel(lastSyncedAt)}</span></div>
           <div className="hq-quick-links"><a href="/mills">Open pilot console <ArrowUpRight size={13}/></a><a href="/contractor">Preview contractor workspace <ArrowUpRight size={13}/></a></div>
         </div>
       </div>
@@ -139,6 +169,7 @@ export default function MillsHeadquarters() {
       <button className={section === 'growth' ? 'active' : ''} aria-pressed={section === 'growth'} onClick={() => setSection('growth')}><Megaphone size={15}/> Growth <span>3</span></button>
     </nav>
 
+    {syncState === 'error' && <div className="hq-notice hq-error-notice" role="alert"><span>Live workspace data is unavailable. You are viewing local mock data.</span><button className="hq-link-button" onClick={() => void refreshWorkspace()}><RefreshCw size={13}/> Retry</button></div>}
     {notice && <div className="hq-notice" role="status" aria-live="polite">{notice}<button onClick={() => setNotice('')} aria-label="Dismiss notice"><X size={14}/></button></div>}
 
     {section === 'overview' && <>

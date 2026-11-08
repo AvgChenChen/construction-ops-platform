@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, Check, Clock3, Hammer, MessageSquare, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Check, Clock3, Hammer, MessageSquare, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 
 type TradeStatus = 'ON_TRACK' | 'AT_RISK' | 'DELAYED' | 'BLOCKED';
 type Trade = { id: string; trade: string; company: string; contact?: string; phone?: string; status: TradeStatus };
 type Task = { id: string; title: string; tradeId: string; due: string; dependsOn: string[]; note?: string };
 type Message = { id: string; sourceTaskId: string; body: string; status: string; createdAt: string };
 type Workspace = { mode?: string; viewer: { tradeId: string; trade: string; company: string; contact: string }; job: { id: string; name: string; address: string | null; status: string }; trades: Trade[]; tasks: Task[]; messages: Message[] };
+type SyncState = 'loading' | 'ready' | 'error';
 
 const statusLabel: Record<TradeStatus, string> = { ON_TRACK: 'On track', AT_RISK: 'At risk', DELAYED: 'Delayed', BLOCKED: 'Blocked' };
 
@@ -23,15 +24,30 @@ export default function ContractorWorkspace() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
+  const [syncState, setSyncState] = useState<SyncState>('loading');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   async function refresh() {
-    const response = await fetch('/api/mills/contractor', { cache: 'no-store' });
-    if (!response.ok) throw new Error('Workspace unavailable');
-    const data = await response.json() as Workspace;
-    setWorkspace(data);
+    setSyncState('loading');
+    try {
+      const response = await fetch('/api/mills/contractor', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Workspace unavailable');
+      const data = await response.json() as Workspace;
+      setWorkspace(data);
+      setLastSyncedAt(new Date().toISOString());
+      setSyncState('ready');
+      setNotice('');
+    } catch (error) {
+      setSyncState('error');
+      throw error;
+    }
   }
 
   useEffect(() => { void refresh().catch(() => setNotice('The pilot workspace is unavailable right now.')); }, []);
+
+  const syncLabel = lastSyncedAt
+    ? `Last synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+    : 'Not synced yet';
 
   const selectedTrade = workspace ? (workspace.trades.find(trade => trade.id === workspace.viewer.tradeId) ?? workspace.trades[0]) : undefined;
   const myTasks = useMemo(() => workspace?.tasks.filter(task => task.tradeId === selectedTrade?.id) ?? [], [workspace, selectedTrade?.id]);
@@ -64,6 +80,7 @@ export default function ContractorWorkspace() {
     }
   }
 
+  if (syncState === 'error' && (!workspace || !selectedTrade)) return <main className="contractor-page"><div className="contractor-loading contractor-error" role="alert"><Sparkles size={18}/><div><strong>We could not load your workspace.</strong><span>Try again when the connection is available.</span></div><button className="button secondary" onClick={() => void refresh().catch(() => setNotice('The pilot workspace is still unavailable.'))}><RefreshCw size={14}/> Retry</button></div>{notice && <p className="contractor-retry-notice" role="status">{notice}</p>}</main>;
   if (!workspace || !selectedTrade) return <main className="contractor-page"><div className="contractor-loading"><Sparkles size={18}/><span>Loading your Mills workspace...</span></div></main>;
 
   return <main className="contractor-page">
@@ -74,11 +91,12 @@ export default function ContractorWorkspace() {
         <h1>Your work, without the group-text scramble.</h1>
         <p>{workspace.job.name} · {workspace.job.address || 'Toronto, ON'}</p>
       </div>
-      <div className="contractor-header-actions"><span className="badge green"><ShieldCheck size={12}/> Human-approved coordination</span><a className="button secondary" href="/hq"><ArrowLeft size={14}/> Mills HQ</a></div>
+      <div className="contractor-header-actions"><span className="badge green"><ShieldCheck size={12}/> Human-approved coordination</span><span className={`badge ${syncState === 'error' ? 'red' : 'green'}`} role="status">{syncLabel}</span><a className="button secondary" href="/hq"><ArrowLeft size={14}/> Mills HQ</a></div>
     </header>
 
     <div className="mills-notice" role="status" aria-live="polite"><Sparkles size={17}/><span><strong>Contractor preview.</strong> This safe pilot uses one local demo session. Your status is saved for the GC to review. Mills does not send SMS or email from this screen.</span></div>
     {notice && <div className="notice" role="status" aria-live="polite">{notice}<button onClick={() => setNotice('')} aria-label="Dismiss">×</button></div>}
+    {syncState === 'error' && <div className="notice contractor-sync-error" role="alert"><span>Showing the last saved view. Live sync is unavailable.</span><button className="button secondary" onClick={() => void refresh().catch(() => setNotice('The pilot workspace is still unavailable.'))}><RefreshCw size={13}/> Retry sync</button></div>}
 
     <section className="contractor-context panel">
       <div><span className="contractor-kicker">YOUR TRADE</span><h2>{workspace.viewer.company}</h2><p>{workspace.viewer.trade} · {workspace.viewer.contact} · {workspace.job.name}</p></div>
