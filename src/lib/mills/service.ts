@@ -141,7 +141,7 @@ export const contractorStatusUpdateSchema = z.object({ action: z.literal('update
 export async function readContractorWorkspace(actorId: string): Promise<MillsContractorWorkspace> {
   await requireLocalOperatorContractorAccess(actorId);
   await ensureDefaultWorkspace();
-  const assigned = await pool.query('SELECT t.id,t.job_id,t.trade,t.company,t.contact,t.status FROM mills_trade t JOIN mills_job j ON j.id=t.job_id JOIN mills_account a ON a.id=j.account_id AND a.status=\'ACTIVE\' JOIN mills_trade_membership tm ON tm.trade_id=t.id AND tm.job_id=t.job_id AND tm.account_id=j.account_id WHERE tm.actor_id=$1 AND tm.status=\'ACTIVE\' AND t.status IS NOT NULL ORDER BY t.created_at LIMIT 1', [actorId]);
+  const assigned = await pool.query('SELECT t.id,t.job_id,t.trade,t.company,t.contact,t.status FROM mills_trade t JOIN mills_job j ON j.id=t.job_id JOIN mills_account a ON a.id=j.account_id AND a.status=\'ACTIVE\' JOIN mills_trade_membership tm ON tm.trade_id=t.id AND tm.job_id=t.job_id AND tm.account_id=j.account_id WHERE tm.actor_id=$1 AND tm.role=\'CONTRACTOR\' AND tm.status=\'ACTIVE\' AND t.status IS NOT NULL ORDER BY t.created_at LIMIT 1', [actorId]);
   if (!assigned.rowCount) throw new Error('Contractor workspace access denied');
   const tradeIds = assigned.rows.map((row) => row.id as string);
   const jobIds = [...new Set(assigned.rows.map((row) => row.job_id as string))];
@@ -166,7 +166,7 @@ export async function readContractorWorkspace(actorId: string): Promise<MillsCon
 export async function executeContractorStatusUpdate(actorId: string, input: z.infer<typeof contractorStatusUpdateSchema>) {
   await requireLocalOperatorContractorAccess(actorId);
   return transaction(async (client) => {
-    const { rows: [trade] } = await client.query('SELECT t.id,t.job_id,t.status,j.account_id FROM mills_trade t JOIN mills_job j ON j.id=t.job_id JOIN mills_account a ON a.id=j.account_id AND a.status=\'ACTIVE\' JOIN mills_trade_membership tm ON tm.trade_id=t.id AND tm.job_id=t.job_id AND tm.account_id=j.account_id WHERE t.id=$1 AND tm.actor_id=$2 AND tm.status=\'ACTIVE\' FOR UPDATE', [input.tradeId, actorId]);
+    const { rows: [trade] } = await client.query('SELECT t.id,t.job_id,t.status,j.account_id FROM mills_trade t JOIN mills_job j ON j.id=t.job_id JOIN mills_account a ON a.id=j.account_id AND a.status=\'ACTIVE\' JOIN mills_trade_membership tm ON tm.trade_id=t.id AND tm.job_id=t.job_id AND tm.account_id=j.account_id WHERE t.id=$1 AND tm.actor_id=$2 AND tm.role=\'CONTRACTOR\' AND tm.status=\'ACTIVE\' FOR UPDATE', [input.tradeId, actorId]);
     if (!trade) throw new Error('Trade access denied');
     await client.query('UPDATE mills_trade SET status=$2,updated_at=now() WHERE id=$1', [input.tradeId, input.status]);
     await client.query('UPDATE mills_task SET status=$2,updated_at=now() WHERE trade_id=$1', [input.tradeId, input.status]);

@@ -181,6 +181,18 @@ describe('Mills MVP persistence', () => {
     await expect(mills.readContractorWorkspace(actorId)).rejects.toThrow('Contractor workspace access denied');
   });
 
+  it('requires contractor role on trade memberships', async () => {
+    const workspace = await mills.readWorkspace();
+    const targetTrade = workspace.trades[0];
+    const actorId = 'ops-trade-membership';
+
+    await pool.query('INSERT INTO mills_trade_membership(id,account_id,job_id,trade_id,actor_id,role,status) VALUES($1,$2,$3,$4,$5,$6,$7)', [randomUUID(), workspace.job.accountId, workspace.job.id, targetTrade.id, actorId, 'OPS', 'ACTIVE']);
+
+    await expect(mills.readContractorWorkspace(actorId)).rejects.toThrow('Contractor workspace access denied');
+    await expect(mills.executeContractorStatusUpdate(actorId, { action: 'updateTradeStatus', tradeId: targetTrade.id, status: 'DELAYED' })).rejects.toThrow('Trade access denied');
+    expect((await pool.query('SELECT status FROM mills_trade WHERE id=$1', [targetTrade.id])).rows[0].status).toBe('ON_TRACK');
+  });
+
   it('rejects cross-account trade membership records', async () => {
     const workspace = await mills.readWorkspace();
     const targetTrade = workspace.trades[0];
