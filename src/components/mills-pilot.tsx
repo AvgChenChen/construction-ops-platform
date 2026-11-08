@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Check, ClipboardList, Hammer, MessageSquare, Plus, ShieldCheck, Sparkles, Users, X } from 'lucide-react';
+import { CalendarDays, Check, Clipboard, ClipboardList, Hammer, MessageSquare, Plus, ShieldCheck, Sparkles, Users, X } from 'lucide-react';
 
 type TradeStatus = 'ON_TRACK' | 'AT_RISK' | 'DELAYED' | 'BLOCKED';
 type DiscoveryStatus = 'PROSPECT' | 'SCHEDULED' | 'INTERVIEWED' | 'PILOT' | 'NOT_NOW';
@@ -91,6 +91,7 @@ export default function MillsPilot() {
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [notice, setNotice] = useState('');
   const [showContactForm, setShowContactForm] = useState(false);
+  const [copiedDraft, setCopiedDraft] = useState<string | null>(null);
 
   async function refreshWorkspace() {
     setWorkspaceReady(false);
@@ -178,6 +179,24 @@ export default function MillsPilot() {
 
   function approveMessage(id: string) {
     setApproved(current => ({ ...current, [id]: !current[id] }));
+  }
+
+  function draftFor(match: { task: Task; causedBy: Task }) {
+    const recipient = trades.find(trade => trade.id === match.task.tradeId);
+    const sourceTrade = trades.find(trade => trade.id === match.causedBy.tradeId);
+    return `Hi ${recipient?.contact ?? 'there'}, ${sourceTrade?.trade ?? 'A trade'} is currently ${statusLabel[sourceTrade?.status ?? 'DELAYED'].toLowerCase()} on the Bloor renovation. Can you confirm whether ${match.task.title.toLowerCase()} is still on track for ${match.task.due}?`;
+  }
+
+  async function copyDraft(id: string) {
+    const match = impacted.find(item => item.task.id === id);
+    if (!match) return;
+    try {
+      await navigator.clipboard.writeText(draftFor(match));
+      setCopiedDraft(id);
+      setNotice('Draft copied locally. No message was sent.');
+    } catch {
+      setNotice('Clipboard access is unavailable. Select the draft text manually. No message was sent.');
+    }
   }
 
   async function sendMockMessage(id: string) {
@@ -278,7 +297,7 @@ export default function MillsPilot() {
               <strong>{task.title}</strong><p>{causeTrade?.trade} is marked {statusLabel[causeTrade?.status ?? 'DELAYED'].toLowerCase()}. Review the handoff before the next crew arrives.</p>
               <pre>Hi {trade?.contact}, {causeTrade?.trade} is currently {statusLabel[causeTrade?.status ?? 'DELAYED'].toLowerCase()} on the Bloor renovation. Can you confirm whether {task.title.toLowerCase()} is still on track for {task.due}?</pre>
               <label className="checkbox"><input type="checkbox" checked={Boolean(approved[id])} onChange={() => approveMessage(id)}/> I reviewed this draft and approve the wording</label>
-              <button className="primary" disabled={!approved[id] || sent[id]} onClick={() => sendMockMessage(id)}>{sent[id] ? <><Check size={14}/> Mock update recorded</> : <>Record mock send</>}</button>
+              <div className="mills-impact-actions"><button type="button" className="secondary" onClick={() => void copyDraft(id)}><Clipboard size={14}/> {copiedDraft === id ? 'Draft copied' : 'Copy draft'}</button><button className="primary" disabled={!approved[id] || sent[id]} onClick={() => sendMockMessage(id)}>{sent[id] ? <><Check size={14}/> Mock update recorded</> : <>Record mock send</>}</button></div>
             </article>; })}
           </section>
           <section className="panel mills-panel"><div className="section-heading"><div><h2>Founder prompt</h2><p className="muted">Use this in the next interview.</p></div><Sparkles size={17}/></div><p className="mills-quote">“When a trade is late, how do you decide who needs to know, and how do you know the next crew actually saw the change?”</p><small>Ask for the last real example, not a general opinion.</small></section>
