@@ -18,7 +18,12 @@
     "backup:restore": "tsx scripts/restore.ts",
     "start:container": "tsx scripts/preflight.ts --production && next start --hostname 0.0.0.0",
     "backup:loop": "tsx scripts/backup-loop.ts",
-    "ops:revoke-sessions": "tsx scripts/revoke-sessions.ts"
+    "ops:revoke-sessions": "tsx scripts/revoke-sessions.ts",
+    "security:audit": "npm audit --audit-level=high",
+    "security:osv": "sh scripts/security-scan.sh osv",
+    "security:secrets": "sh scripts/security-scan.sh secrets",
+    "security:zap": "sh scripts/security-scan.sh zap",
+    "security:check": "npm run typecheck && npm test && npm run security:audit && npm run security:osv && npm run security:secrets"
   },
   "engines": {
     "node": ">=22.12"

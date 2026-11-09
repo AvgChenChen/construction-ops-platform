@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
-import { sessionActor, cookieName, validOrigin } from '@/lib/auth';
+import { sessionActor, cookieName, validOrigin, allowLogin } from '@/lib/auth';
+import { readJsonBody, RequestBodyError } from '@/lib/security/request';
 import { executeCommand, millsCommandSchema, readWorkspace } from '@/lib/mills/service';
 
 export const dynamic = 'force-dynamic';
@@ -19,11 +20,13 @@ export async function POST(req: Request) {
   const operator = await sessionActor((await cookies()).get(cookieName)?.value);
   if (!operator) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   if (!validOrigin(req)) return Response.json({ error: 'Origin rejected' }, { status: 403 });
+  if (!await allowLogin(`mills-command:${operator.id}`, 60)) return Response.json({ error: 'Too many requests; wait one minute' }, { status: 429 });
   try {
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const input = millsCommandSchema.parse(body);
     return Response.json(await executeCommand(input, operator.id));
   } catch (error) {
+    if (error instanceof RequestBodyError) return Response.json({ error: 'Mills request could not be completed' }, { status: error.status });
     const message = error instanceof Error ? error.message : '';
     const accessDenied = message === 'Mills account access denied' || message === 'Mills operator access required';
     return Response.json({ error: accessDenied ? message : 'Mills request could not be completed' }, { status: accessDenied ? 403 : 400 });

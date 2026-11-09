@@ -1,0 +1,68 @@
+name: Mills security checks
+
+on:
+  pull_request:
+  push:
+    branches: [mills-progress, main]
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: mills
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: mills_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U mills"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://mills:ci-only-password@127.0.0.1:5432/mills_test
+      TEST_DATABASE_URL: postgresql://mills:ci-only-password@127.0.0.1:5432/mills_test
+      APP_ORIGIN: http://127.0.0.1:3000
+      AUTH_MODE: local
+      DEPLOYMENT_ENV: local
+      DASHBOARD_PASSWORD: isolated-ci-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  osv-scanner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: OSV-Scanner (known vulnerabilities in the lockfile)
+        uses: google/osv-scanner-action/osv-scanner-action@v2.7.0
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+            --config=osv-scanner.toml
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks (committed secrets)
+        uses: gitleaks/gitleaks-action@v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

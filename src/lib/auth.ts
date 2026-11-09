@@ -8,6 +8,9 @@ export const hash=(value:string)=>createHash('sha256').update(value).digest('hex
 export function safeRedirectPath(value: string | null | undefined) {
   const destination = value ?? '/mills';
   if (!destination.startsWith('/') || destination.startsWith('//')) return '/mills';
+  // Reject ambiguous path encodings before URL normalization. Browsers and
+  // proxies may decode these into a scheme-relative or backslash redirect.
+  if (/[\\\u0000-\u001f\u007f]/.test(destination) || /%(?:2f|5c)/i.test(destination)) return '/mills';
   try {
     const origin = new URL(appOrigin());
     const resolved = new URL(destination, origin);
@@ -27,3 +30,5 @@ export async function validSession(token:string|undefined){return !!await sessio
 export async function revokeSession(token:string|undefined){if(token){const {rows:[s]}=await pool.query('DELETE FROM auth_session WHERE hash=$1 RETURNING actor_id',[hash(token)]);if(s)await pool.query("INSERT INTO task_event(actor,type) VALUES($1,'AUTH_SIGNED_OUT')",[s.actor_id]);}}
 export function validOrigin(request:Request){try{return request.headers.get('origin')===appOrigin();}catch{return false;}}
 export async function allowLogin(key:string,limit=10){const {rows:[r]}=await pool.query("INSERT INTO auth_throttle(key,attempts,until) VALUES($1,1,now()+interval '1 minute') ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN auth_throttle.until<now() THEN 1 ELSE auth_throttle.attempts+1 END,until=CASE WHEN auth_throttle.until<now() THEN now()+interval '1 minute' ELSE auth_throttle.until END RETURNING attempts",[key]);return r.attempts<=limit;}
+/** Security audit trail for failed sign-ins. Stores only the event type and mode, never the submitted value. */
+export async function recordAuthFailure(mode:'local'|'oidc'){try{await pool.query("INSERT INTO task_event(actor,type,detail) VALUES('anonymous',$1,$2)",[mode==='oidc'?'AUTH_OIDC_FAILED':'AUTH_SIGN_IN_FAILED',JSON.stringify({mode})]);}catch{/* audit write must not turn a failed login into a 500 */}}
