@@ -17,8 +17,17 @@ Status as of 2026-11-09 (branch `security-hardening-mvp`).
 | Backups verified | ❌ | Encryption and restore safeguards are unit-tested; a real backup on production infrastructure has not been made |
 | Restore tested | ❌ | Run the restore drill; `mills_restore_drill_age_seconds` must be ≥ 0 |
 | Sensitive logs redacted | ✅ | Redaction tests (emails, phones, tokens, passwords) |
-| Incident response documented | ❌ | Need a named owner, contact path and first-hour checklist |
+| Incident response documented | ✅ | Both founders own incidents (2026-11-09); steps below |
 | Legal drafts reviewed by a qualified professional | ❌ | Five drafts in `docs/*-DRAFT.md`; entity, governing law and liability terms need a lawyer |
+
+## Incident response
+
+**Owners:** both founders, jointly. Whoever notices first starts, then tells the other immediately. Security reports: millsai.now@gmail.com.
+
+1. **Contain:** revoke sessions (`npm run ops:revoke-sessions`), rotate any leaked secret, take the app offline if data is exposed.
+2. **Assess:** which accounts, what data, since when (audit events, `task_event`, host logs).
+3. **Notify:** a lawyer confirms whether PIPEDA breach reporting applies (real risk of significant harm → Privacy Commissioner of Canada + affected people, and keep a record).
+4. **Fix and review:** fix the cause, add a test, write down what happened.
 
 ## Verification commands
 
