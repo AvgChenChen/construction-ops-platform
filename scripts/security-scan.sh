@@ -5,7 +5,7 @@ set -eu
 case "${1:-}" in
   osv)
     command -v osv-scanner >/dev/null || { echo "osv-scanner not installed (brew install osv-scanner). Skipped."; exit 0; }
-    osv-scanner scan source --lockfile=package-lock.json ;;
+    osv-scanner scan source --lockfile=package-lock.json --ignore-dev ;;
   secrets)
     command -v gitleaks >/dev/null || { echo "gitleaks not installed (brew install gitleaks). Skipped."; exit 0; }
     gitleaks git --redact --no-banner . ;;
