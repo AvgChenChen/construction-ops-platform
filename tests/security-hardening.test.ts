@@ -47,7 +47,7 @@ describe('cookies and redirects', () => {
 
   it('rejects encoded and scheme-based open redirects', () => {
     expect(safeRedirectPath('javascript:alert(1)')).toBe('/mills');
-    expect(safeRedirectPath('/%2F%2Fevil.example')).toBe('/%2F%2Fevil.example');
+    expect(safeRedirectPath('/%2F%2Fevil.example')).toBe('/mills');
     expect(safeRedirectPath('/\t/evil.example')).toBe('/mills');
   });
 });

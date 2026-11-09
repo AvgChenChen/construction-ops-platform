@@ -8,6 +8,9 @@ export const hash=(value:string)=>createHash('sha256').update(value).digest('hex
 export function safeRedirectPath(value: string | null | undefined) {
   const destination = value ?? '/mills';
   if (!destination.startsWith('/') || destination.startsWith('//')) return '/mills';
+  // Reject ambiguous path encodings before URL normalization. Browsers and
+  // proxies may decode these into a scheme-relative or backslash redirect.
+  if (/[\\\u0000-\u001f\u007f]/.test(destination) || /%(?:2f|5c)/i.test(destination)) return '/mills';
   try {
     const origin = new URL(appOrigin());
     const resolved = new URL(destination, origin);

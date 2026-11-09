@@ -1,0 +1,8 @@
+# Production images install only runtime dependencies. Keep dev tooling
+# visible to npm audit, but do not block the OSV production-dependency gate on
+# vulnerabilities that cannot ship in the runtime image.
+[[PackageOverrides]]
+ecosystem = "npm"
+group = "dev"
+ignore = true
+reason = "Development-only packages are excluded from the production image; npm audit still reports them separately."
