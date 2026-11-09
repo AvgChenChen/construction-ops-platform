@@ -2,33 +2,43 @@
 
 ## Assets
 
-- Contractor contact details and project schedules.
+- Contractor contact details, job schedules and discovery contacts.
 - Account membership and trade-scoped access.
-- Draft messages and approval records.
-- OIDC session identifiers and provider state.
+- Draft messages and approval records (the approval gate itself).
+- Session tokens, OIDC state, monitoring token, backup key.
 - Encrypted backups.
 
-## Primary threats
+## Threats and controls
 
 | Threat | Control | Verification |
 | --- | --- | --- |
-| Cross-account data access | Account/job/trade checks in server-side services | Authorization integration tests |
-| Session theft | HttpOnly, SameSite cookies; short inactivity window; revocation | Auth tests and production HTTPS preflight |
-| CSRF or cross-site mutation | Exact Origin checks on mutations | Route-handler tests |
-| Open redirects | Internal-path validation | Redirect tests |
-| XSS | React escaping, CSP, no untrusted HTML rendering | ZAP and browser tests |
-| Malicious uploads | Size limits, magic-byte checks, private storage boundary | Upload utility tests |
-| Webhook spoofing/replay | HMAC, timestamp freshness, idempotency boundary | Signature tests |
-| AI prompt injection | Structured outputs, restricted tools, approval gate | Promptfoo/offline adversarial tests |
-| Credential leakage | Environment-only secrets and redacted logs | Secret/dependency scans |
-| Destructive recovery mistake | Separate `_restore` database requirement | Restore tests |
+| Cross-account data access | Account/job/trade checks in server services; composite membership keys | `mills-service.test.ts` |
+| Session theft / fixation | Random 256-bit tokens, hashed at rest; HttpOnly, SameSite, Secure on HTTPS; 8 h cap, 30 min idle; revocation | `auth-session.test.ts`, cookie tests |
+| Credential stuffing | PostgreSQL throttle on login and OIDC start; failure audit + metric | `auth-session.test.ts` |
+| CSRF | Exact Origin check on all POSTs + SameSite | route code, `validOrigin` |
+| Open redirect | Internal-path validation | `auth.test.ts`, `security-hardening.test.ts` |
+| XSS | React escaping, no raw HTML (tested), CSP, nosniff; downloads served as sandboxed attachments | `security-hardening.test.ts` |
+| Clickjacking | `frame-ancestors 'none'`, `X-Frame-Options: DENY` | header test |
+| Request flooding / large bodies | Body caps, per-actor throttles | `security-hardening.test.ts` |
+| SQL injection | Parameterized queries, Zod UUIDs | payload tests |
+| Malicious uploads | Magic bytes + extension + MIME, random storage keys, traversal guard, quarantine until scanned, no inline rendering | upload tests |
+| Webhook spoofing / replay | HMAC over timestamp + raw body before parsing, freshness, account scope, event-id dedup | webhook tests |
+| AI prompt injection / exfiltration / approval bypass | Strict result schema, tool allowlist, outbound tools blocked, override text and links rejected, `PENDING_HUMAN_APPROVAL` only | `ai-safety.test.ts` |
+| Sensitive data in logs | `redactLogDetail`, event-only logging | redaction tests |
+| Destructive restore | Empty, separately named `_restore` target; refuses source DB | restore tests |
+| Leaked secrets in git | Gitleaks in CI | `security.yml` |
+| Vulnerable dependencies | npm audit, OSV-Scanner | `security.yml` |
 
 ## Trust boundaries
 
-1. Browser to Next.js route handlers.
-2. Next.js services to PostgreSQL.
-3. Future provider webhooks to integration routes.
-4. Future model providers to AI worker boundaries.
-5. Operator approval to any outbound action.
+1. Browser → Next.js route handlers (Origin, session, body cap, Zod).
+2. Route handlers → PostgreSQL (parameterized, account-scoped).
+3. Future provider webhooks → integration routes (`verifyWebhook`).
+4. Future model output → `guardWorkerResult` → human approval.
+5. Human approval → any outbound action (none enabled).
 
-No boundary may bypass the approval policy or tenant authorization checks.
+No boundary may bypass the approval policy or tenant authorization.
+
+## Known gaps
+
+`'unsafe-inline'` in `script-src`; in-memory replay guard; single `local-operator` identity in local mode; no self-serve export/delete.

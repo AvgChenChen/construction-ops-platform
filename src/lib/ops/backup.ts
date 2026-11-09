@@ -123,3 +123,10 @@ export async function restoreBackup(path: string, targetUrl: string, confirmatio
     await rm(temporary, { recursive: true, force: true });
   }
 }
+
+/** Best-effort ops marker in the source database (feeds /api/metrics). Never throws. */
+export async function recordOpsEvent(type: 'BACKUP_FAILED' | 'RESTORE_DRILL_COMPLETED') {
+  if (!process.env.DATABASE_URL) return;
+  const db = new Pool({ connectionString: process.env.DATABASE_URL });
+  try { await db.query("INSERT INTO task_event(actor,type) VALUES('ops',$1)", [type]); } catch { /* metrics marker only */ } finally { await db.end(); }
+}

@@ -20,9 +20,11 @@ export async function heartbeat(instance: string, loop: string, status: 'RUNNING
 export async function operationalStatus() {
   const errors = configurationErrors();
   await pool.query('SELECT 1');
-  const { rows: heartbeatRows } = await pool.query("SELECT bool_or(updated_at>now()-interval '180 seconds' AND last_success IS NOT NULL AND failures<3) AS healthy FROM worker_heartbeat WHERE loop='mills'");
+  const { rows: heartbeatRows } = await pool.query("SELECT bool_or(updated_at>now()-interval '180 seconds' AND last_success IS NOT NULL AND failures<3) AS healthy, extract(epoch FROM now()-max(updated_at))::int AS heartbeat_age, coalesce(max(failures),0)::int AS failures FROM worker_heartbeat WHERE loop='mills'");
   const workers = { mills: heartbeatRows[0]?.healthy === true };
-  const { rows: [counts] } = await pool.query("SELECT (SELECT count(*)::int FROM mills_job WHERE status='ACTIVE') AS active_jobs, (SELECT count(*)::int FROM mills_trade WHERE status IN ('DELAYED','BLOCKED')) AS attention_trades, (SELECT count(*)::int FROM mills_message WHERE status='DRAFT') AS pending_messages, (SELECT count(*)::int FROM mills_audit_event WHERE created_at>now()-interval '24 hours') AS recent_audits, (SELECT max(created_at) FROM backup_record) AS last_backup");
+  const heartbeatAgeSeconds: number | null = heartbeatRows[0]?.heartbeat_age ?? null;
+  const workerFailures: number = heartbeatRows[0]?.failures ?? 0;
+  const { rows: [counts] } = await pool.query("SELECT (SELECT count(*)::int FROM mills_job WHERE status='ACTIVE') AS active_jobs, (SELECT count(*)::int FROM mills_trade WHERE status IN ('DELAYED','BLOCKED')) AS attention_trades, (SELECT count(*)::int FROM mills_message WHERE status='DRAFT') AS pending_messages, (SELECT count(*)::int FROM mills_audit_event WHERE created_at>now()-interval '24 hours') AS recent_audits, (SELECT max(created_at) FROM backup_record) AS last_backup, (SELECT count(*)::int FROM task_event WHERE type='AUTH_SIGN_IN_FAILED' AND created_at>now()-interval '24 hours') AS auth_failures, (SELECT count(*)::int FROM task_event WHERE type='AUTH_OIDC_FAILED' AND created_at>now()-interval '24 hours') AS oidc_failures, (SELECT count(*)::int FROM task_event WHERE type='BACKUP_FAILED' AND created_at>now()-interval '24 hours') AS backup_failures, (SELECT max(created_at) FROM task_event WHERE type='RESTORE_DRILL_COMPLETED') AS last_restore_drill");
   const backupFresh = !!counts.last_backup && Date.now() - new Date(counts.last_backup).getTime() < 26 * 3600000;
   return {
     ready: errors.length === 0 && workers.mills,
@@ -34,7 +36,13 @@ export async function operationalStatus() {
       pendingMessages: counts.pending_messages,
       recentAudits: counts.recent_audits,
       lastBackup: counts.last_backup,
+      authFailures24h: counts.auth_failures,
+      oidcFailures24h: counts.oidc_failures,
+      backupFailures24h: counts.backup_failures,
+      lastRestoreDrill: counts.last_restore_drill,
     },
+    heartbeatAgeSeconds,
+    workerFailures,
     backupFresh,
   };
 }
@@ -49,6 +57,12 @@ export function metrics(status: Awaited<ReturnType<typeof operationalStatus>>) {
     `mills_pending_messages ${status.counts.pendingMessages}`,
     `mills_recent_audits ${status.counts.recentAudits}`,
     `mills_backup_fresh ${Number(status.backupFresh)}`,
+    `mills_auth_failures_24h ${status.counts.authFailures24h}`,
+    `mills_oidc_failures_24h ${status.counts.oidcFailures24h}`,
+    `mills_backup_failures_24h ${status.counts.backupFailures24h}`,
+    `mills_worker_consecutive_failures{loop="mills"} ${status.workerFailures}`,
+    `mills_worker_heartbeat_age_seconds{loop="mills"} ${status.heartbeatAgeSeconds ?? -1}`,
+    `mills_restore_drill_age_seconds ${status.counts.lastRestoreDrill ? Math.round((Date.now() - new Date(status.counts.lastRestoreDrill).getTime()) / 1000) : -1}`,
     '',
   ].join('\n');
 }

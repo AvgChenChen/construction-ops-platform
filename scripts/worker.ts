@@ -19,9 +19,12 @@ async function main() {
   safeLog('MILLS_WORKER_STARTED');
   while (!stopped) {
     try {
+      const started = Date.now();
       await heartbeat(instance, 'mills', 'RUNNING');
       await maintenanceTick();
       await heartbeat(instance, 'mills', 'OK');
+      const durationMs = Date.now() - started;
+      if (durationMs > 1000) safeLog('MILLS_WORKER_SLOW_TICK', `duration_ms=${durationMs}`);
     } catch (error) {
       safeLog('MILLS_WORKER_ITERATION_FAILED', error instanceof Error ? error.name : 'unknown');
       try { await heartbeat(instance, 'mills', 'ERROR'); } catch { safeLog('MILLS_HEARTBEAT_WRITE_FAILED'); }
