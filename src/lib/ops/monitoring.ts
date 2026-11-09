@@ -1,6 +1,7 @@
 import { pool } from '../db';
 import { equal } from '../auth';
 import { configurationErrors } from './config';
+import { redactLogDetail } from './redaction';
 
 export const loops = ['mills'] as const;
 
@@ -53,5 +54,5 @@ export function metrics(status: Awaited<ReturnType<typeof operationalStatus>>) {
 }
 
 export function safeLog(event: string, detail?: string) {
-  console.log(JSON.stringify({ time: new Date().toISOString(), event, detail }));
+  console.log(JSON.stringify({ time: new Date().toISOString(), event, detail: redactLogDetail(detail) }));
 }
